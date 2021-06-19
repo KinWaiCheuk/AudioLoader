@@ -6,6 +6,9 @@ from torch import Tensor
 import torch
 import os
 import time
+import tqdm
+import shutil
+import glob
 from torchaudio.datasets.utils import (
     download_url,
     extract_archive,
@@ -14,19 +17,7 @@ from torchaudio.datasets.utils import (
 from torchaudio.compliance import kaldi # for downsampling
 
 _CHECKSUMS = {"mls_italian_opus": "ca5a74d7e97cc62635022719e0ef529d",
-    "http://www.openslr.org/resources/12/dev-other.tar.gz":
-    "12661c48e8c3fe1de2c1caa4c3e135193bfb1811584f11f569dd12645aa84365",
-    "http://www.openslr.org/resources/12/test-clean.tar.gz":
-    "39fde525e59672dc6d1551919b1478f724438a95aa55f874b576be21967e6c23",
-    "http://www.openslr.org/resources/12/test-other.tar.gz":
-    "d09c181bba5cf717b3dee7d4d592af11a3ee3a09e08ae025c5506f6ebe961c29",
-    "http://www.openslr.org/resources/12/train-clean-100.tar.gz":
-    "d4ddd1d5a6ab303066f14971d768ee43278a5f2a0aa43dc716b0e64ecbbbf6e2",
-    "http://www.openslr.org/resources/12/train-clean-360.tar.gz":
-    "146a56496217e96c14334a160df97fffedd6e0a04e66b9c5af0d40be3c792ecf",
-    "http://www.openslr.org/resources/12/train-other-500.tar.gz":
-    "ddb22f27f96ec163645d53215559df6aa36515f26e01dd70798188350adcb6d2"
-}
+             }
 
 class MultilingualLibriSpeech(Dataset):
     """Dataset class for Multilingual LibriSpeech (MLS) dataset.
@@ -66,6 +57,7 @@ class MultilingualLibriSpeech(Dataset):
         
         # Getting audio path
         download_path = os.path.join(root, language_name)
+        self.download_path = download_path
         self._path = os.path.join(root, language_name, split)
         
         if download:
@@ -125,7 +117,59 @@ class MultilingualLibriSpeech(Dataset):
         fileid = self._walker[n]
         return self.load_librispeech_item(fileid, self._path, self._ext_audio)
 
+    def extract_limited_train_set(self):
+        root = os.path.join(self.download_path, 'train', 'limited_supervision')
+        
+        # read the files for the 9hr set
+        with open(os.path.join(root, '9hr', 'handles.txt')) as f:
+            limited_9hr_paths = f.read().splitlines()
+        # read the files for the 1hr set
+        limited_1hr_paths = {} # create a dictionary to sort the k-fold 1hr set
+        for folder_name in range(6):
+            # read the files for the 1hr set
+            with open(os.path.join(root, '1hr', str(folder_name), 'handles.txt')) as f:
+                limited_1hr_paths[folder_name] = f.read().splitlines()
 
+        # Appending 9hr and 1hr set
+        unique_paths = set()
+        # Add 9hr sets to the unique set
+        unique_paths.update(set(limited_9hr_paths))
+        # Add the k-fold of 1hr set to the unique set
+        for key, values in limited_1hr_paths.items():
+            unique_paths.update(set(values))
+        print(f'There are in total {len(unique_paths)} utterences in the limited_supervision set')
+        
+        # Moving the audio files from limited set into a new folder
+        audio_root = os.path.join(self.download_path, 'train', 'audio')
+        target_root = os.path.join(self.download_path, 'limited_train', 'audio')
+        
+        for i in tqdm.tqdm(unique_paths, desc='Creating `limited_train` set'):
+            speaker_id, chapter_id, utterance_id = i.split('_')
+            audio_path = os.path.join(audio_root, speaker_id, chapter_id,
+                                      i+'.opus')
+
+            output_path = os.path.join(target_root, speaker_id, chapter_id,
+                                       i+'.opus')
+            output_folder = os.path.dirname(output_path)
+            if not os.path.exists(output_folder):
+                os.makedirs(output_folder)
+            shutil.copy(audio_path, output_path)        
+            
+        # Moving the rest of the files
+        train_folder = os.path.join(*audio_root.split('/')[:-1])
+        target_train_folder = os.path.join(*target_root.split('/')[:-1])
+        # moving metadata inside the `limited_supervision` folder
+        shutil.copytree(os.path.join(train_folder, 'limited_supervision'), os.path.join(target_train_folder, 'limited_supervision'))        
+        # moving all .txt files
+        for i in glob.glob(os.path.join(train_folder, '*.txt')):
+            try:
+                shutil.copy(i, target_train_folder)
+            except Exception as e:
+                pass        
+        
+        
+        
+    
     def __len__(self) -> int:
         return len(self._walker)
     
