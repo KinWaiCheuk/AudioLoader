@@ -20,13 +20,23 @@ from torchaudio.datasets.utils import (
 
 
 
-_CHECKSUMS = {"mls_italian_opus": "ca5a74d7e97cc62635022719e0ef529d",
-              "mls_dutch_opus":   "96658c55ef85993a56cf2efbf6f83f57",
+_CHECKSUMS = {"mls_english_opus": "60390221eec6f456611563b37f0b052c",
               "mls_german_opus":  "b24a9dfd3a8dd1aeabc1341982cc4775",
-              "mls_english_opus": "60390221eec6f456611563b37f0b052c",
+              "mls_dutch_opus":   "96658c55ef85993a56cf2efbf6f83f57",
+              "mls_french_opus":  "b4716b2fd4f67b07c17c6b2a6068641f",
+              "mls_spanish_opus": "a2c4b0ff02a71f10ddb21beffbe640ce",
+              "mls_italian_opus": "ca5a74d7e97cc62635022719e0ef529d",
               "mls_portuguese_opus": "4dbd6cbdda61268e5d26c4117b0bf769",
-              "mls_polish_opus":  "21f83647876c61566c96fdc6298a7b65"}
-
+              "mls_polish_opus":  "21f83647876c61566c96fdc6298a7b65",
+             
+              "mls_english": "9d4249911e318c2b8dcfcfecb484d865",
+              "mls_german": "91ac982bf63869307f1b8950dfb7c776",
+              "mls_dutch": "6b171a16baff0108efd320b1ad65b9d1",
+              "mls_french": "4172e807697259bff9ad63661aecabf6",
+              "mls_spanish": "6c34698dd522dde28fdc43309e9cc1ac",
+              "mls_italian": "dc77f5805aecc7182aa20786032e5dc1",
+              "mls_portuguese": "12d54613fae75ae5fb1d55836408f3ee",
+              "mls_polish": "ce1a1278006cc373c9d1cb6dbfc03d47"}
 
 
 class MultilingualLibriSpeech(Dataset):
@@ -45,10 +55,6 @@ class MultilingualLibriSpeech(Dataset):
             Whether to download the dataset if it is not found at root path. (default: ``False``).
     """
     
-#     _ext_txt = ".trans.txt"
-    _ext_audio = ".opus"
-    _ext_pytorch = ".pt"
-    
 
     def __init__(self,
                  root: Union[str, Path],
@@ -61,6 +67,12 @@ class MultilingualLibriSpeech(Dataset):
                  download: bool = False,
                  IPA: bool = False,
                  _ext_txt='.trans.txt'):
+        if 'opus' in language_name:
+            print(f'True')
+            self._ext_audio = ".opus"
+        else:
+            self._ext_audio = ".flac"
+        self._ext_pytorch = ".pt"        
         
         self._ext_txt = _ext_txt
         self.refresh = refresh
@@ -184,10 +196,10 @@ class MultilingualLibriSpeech(Dataset):
         for i in tqdm.tqdm(unique_paths, desc='Creating `limited_train` set'):
             speaker_id, chapter_id, utterance_id = i.split('_')
             audio_path = os.path.join(audio_root, speaker_id, chapter_id,
-                                      i+'.opus')
+                                      i+self._ext_audio)
 
             output_path = os.path.join(target_root, speaker_id, chapter_id,
-                                       i+'.opus')
+                                       i+self._ext_audio)
             output_folder = os.path.dirname(output_path)
             if not os.path.exists(output_folder):
                 os.makedirs(output_folder)
