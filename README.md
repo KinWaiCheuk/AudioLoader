@@ -14,13 +14,13 @@ This will be a collection of PyTorch audio datasets that are not available in th
 
 ## Multilingual LibriSpeech
 ### Introduction
-[Multilingual LibriSpeech (MLS)](http://www.openslr.org/94/) contains 8 languages. This ready-to-use PyTorch dataset allows users to set up this dataset by just calling the `Multilingual LibriSpeech` class. The original dataset put all utterance labels into a single `.txt` file. For larger languages such as English, it causes a slow label loading. This custom dataset automatically splits the labels into smaller sizes.
+[Multilingual LibriSpeech (MLS)](http://www.openslr.org/94/) contains 8 languages. This ready-to-use PyTorch `Dataset` class allows users to set up this dataset by just calling the `MultilingualLibriSpeech` class. The original dataset put all utterance labels into a single `.txt` file. For larger languages such as English, it causes a slow label loading. This custom `Dataset` class automatically splits the labels into smaller sizes.
 
 ### Usage
 To use this dataset for the first time, set `download=True`. 
 
 ```python
-dataset = MultilingualLibriSpeech('../Speech', 'mls_polish', 'test', download=True)
+dataset = MultilingualLibriSpeech('../Speech', 'mls_polish', 'train', download=True)
 ```
 
 This will download, unzip, and split the labels. To download `opus` version of the dataset, simply add the suffix `_opus`. e.g. `mls_polish_opus`.
