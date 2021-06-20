@@ -1,8 +1,8 @@
 # AudioDatasets
-This will be a collection of PyTorch audio datasets that are not avaliable in official PyTorch yet. I am building various one-click-ready audio datasets for my research, and I hope it will also benefits other people as well. 
+This will be a collection of PyTorch audio datasets that are not available in the official PyTorch dataset yet. I am building various one-click-ready audio datasets for my research, and I hope it will also benefit other people. 
 
 **Currently supported datasets:**
-1. [Multilingual LibriSpeech (MLS) ](##multilingual-librispeech)
+1. [Multilingual LibriSpeech (MLS) ](#multilingual-librispeech)
 
 **TODO:**
 1. MAPS
@@ -10,20 +10,22 @@ This will be a collection of PyTorch audio datasets that are not avaliable in of
 1. MusicNet
 
 ## Installation
-pip install git+https://github.com/KinWaiCheuk/AudioDatasets.git
+`pip install git+https://github.com/KinWaiCheuk/AudioDatasets.git`
 
 ## Multilingual LibriSpeech
 ### Introduction
-[Multilingual LibriSpeech (MLS)](http://www.openslr.org/94/) contains 8 langauges. This ready-to-use PyTorch dataset allows users to setup this dataset by just calling the `Multilingual LibriSpeech` class. The original dataset put all utterance labels into a single `.txt` file. For larger languages such as English, it causes a slow label loading. This custom dataset automatically sp
+[Multilingual LibriSpeech (MLS)](http://www.openslr.org/94/) contains 8 languages. This ready-to-use PyTorch dataset allows users to set up this dataset by just calling the `Multilingual LibriSpeech` class. The original dataset put all utterance labels into a single `.txt` file. For larger languages such as English, it causes a slow label loading. This custom dataset automatically splits the labels into smaller sizes.
 
 ### Usage
 To use this dataset for the first time, set `download=True`. 
 
 ```python
-dataset = MultilingualLibriSpeech('../Speech', 'mls_polish_opus', 'test', download=True)
+dataset = MultilingualLibriSpeech('../Speech', 'mls_polish', 'test', download=True)
 ```
 
-This will download, unzip, and split the labels. `__getitem__` returns a dictionary containing:
+This will download, unzip, and split the labels. To download `opus` version of the dataset, simply add the suffix `_opus`. e.g. `mls_polish_opus`.
+
+`__getitem__` returns a dictionary containing:
 
 ```python
 {'path': '../Speech/mls_polish_opus/test/audio/8758/8338/8758_8338_000066.opus',
@@ -56,3 +58,8 @@ It splits the single text label `.txt` file into smaller per chapter `.txt` file
 `num_threads`: Default `0`. Determine how many threads are used to split the labels. Useful for larger dataset like English.
 
 `IPA`: Default `False`. Set to `True` to extract IPA labels. Useful for phoneme recognition. Requires [phomenizer](https://github.com/bootphon/phonemizer) and [espeak](https://github.com/espeak-ng/espeak-ng). (Wokr in progress)
+
+## TODO
+1. Add `use_cache` feature such that the dataset will convert the dictionary into a pytorch `.pt` object when looping via the dataset for the first time. It decreases the loading time thereafter by reading directly from the `.pt` files.
+    1. add `.flush()` method to clear the cache
+1. Add `.resample(sr)` method to allow users to resample the audio to the sampling rate they want.
