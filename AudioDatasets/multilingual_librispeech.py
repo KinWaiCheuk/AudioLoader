@@ -62,22 +62,21 @@ class MultilingualLibriSpeech(Dataset):
                  split: str = "train",                 
                  low_resource: bool = False,
                  one_hr=0,
-                 refresh: bool = False,
                  use_cache: bool = False,
+                 sample_rate: int = None,
                  download: bool = False,
                  IPA: bool = False,
                  _ext_txt='.trans.txt'):
         if 'opus' in language_name:
-            print(f'True')
             self._ext_audio = ".opus"
         else:
             self._ext_audio = ".flac"
         self._ext_pytorch = ".pt"        
         
         self._ext_txt = _ext_txt
-        self.refresh = refresh
         self.use_cache = use_cache
         ext_archive = '.tar.gz'
+        self.sample_rate = sample_rate
         url = f"https://dl.fbaipublicfiles.com/mls/{language_name}{ext_archive}"
         
         # Getting audio path
@@ -122,7 +121,7 @@ class MultilingualLibriSpeech(Dataset):
         if os.path.isdir(self._path):
             pass
         else:
-            raise FileNotFoundError("Dataset not found, please specify the correct location or set `download=True`")
+            raise FileNotFoundError(f"Dataset not found at {self._path}, please specify the correct location or set `download=True`")
 
 
 
@@ -263,6 +262,27 @@ class MultilingualLibriSpeech(Dataset):
     def __len__(self) -> int:
         return len(self._walker)
     
+    def clear_cache(self):
+        """
+        This method removes all the .pt file in the dataset.
+        By removing all the .pt files, ``__getitem__`` will downsample and
+        save the .pt files again when ``use_cache=True``."""
+        
+        cache_files = glob.glob(os.path.join(self.download_path,'*','*','*','*','*.pt'))
+        if len(cache_files)>0:
+            decision = input(f'{len(cache_files)} .pt files found, are you sure you want to remove them? [yes/no]')
+            if decision.lower()=='yes':
+                for i in cache_files:
+                    os.remove(i)
+            elif decision.lower()=='no':
+                print(f'Aborting cache cleaning...')
+            else:
+                raise ValueError(f'Input {decision} is not recognized, please choose `yes` or `no`.')
+        elif len(cache_files)==0:
+            print(f'No cache file found')
+        else:
+            raise ValueError(f'Something is wrong, why does there are {len(cache_files)} cache files')
+    
     def load_librispeech_item(self, fileid: str,
                               path: str,
                               ext_audio: str)-> Tuple[Tensor, int, str, int, int, int]:
@@ -273,7 +293,9 @@ class MultilingualLibriSpeech(Dataset):
 
         saved_name = fileid + self._ext_pytorch
         processed_data_path = os.path.join(path, 'audio', speaker_id, chapter_id, saved_name)
-        if self.use_cache==True and self.refresh==False:
+        
+        # TODO: check if .pt file exists, if not, move to else
+        if self.use_cache==True and os.path.isfile(processed_data_path):
             return torch.load(processed_data_path)
         else:
 #             print(f'MLS file not exists')
@@ -284,10 +306,10 @@ class MultilingualLibriSpeech(Dataset):
             # Load audio
             start_audioload = time.time()
             waveform, sample_rate = torchaudio.load(file_audio)
-#             if sample_rate!=16000: # If the sampling_rate is above 16k, downsample it
-# #                 print(f'downsampling...')
-#                 waveform = kaldi.resample_waveform(waveform, sample_rate, 16000)
-
+            if sample_rate!=self.sample_rate and self.sample_rate!=None: # If the sample_rate is above 16k, downsample it
+                waveform = kaldi.resample_waveform(waveform, sample_rate, 16000)
+#                 print(f'downsampling...')
+                
             # Load text
             with open(file_text) as ft:
                 for line in ft:
@@ -310,6 +332,7 @@ class MultilingualLibriSpeech(Dataset):
                      "utterance_id": int(utterance_id)
                     }
             if self.use_cache==True:
+#                 print(f'saving...')
                 torch.save(batch, processed_data_path)
         return batch
     
