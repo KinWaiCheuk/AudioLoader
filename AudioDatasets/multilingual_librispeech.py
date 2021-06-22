@@ -39,20 +39,50 @@ _CHECKSUMS = {"mls_english_opus": "60390221eec6f456611563b37f0b052c",
               "mls_polish": "ce1a1278006cc373c9d1cb6dbfc03d47"}
 
 
+espeak_map = {"mls_english_opus": "en",
+              "mls_german_opus":  "de",
+              "mls_dutch_opus":   "nl",
+              "mls_french_opus":  "fr",
+              "mls_spanish_opus": "es",
+              "mls_italian_opus": "it",
+              "mls_portuguese_opus": "pt-pt",
+              "mls_polish_opus":  "pl",
+              "mls_english": "en",
+              "mls_german":  "de",
+              "mls_dutch":   "nl",
+              "mls_french":  "fr",
+              "mls_spanish": "es",
+              "mls_italian": "it",
+              "mls_portuguese": "pt-pt",
+              "mls_polish":  "pl"}
+    
+
+
 class MultilingualLibriSpeech(Dataset):
     """Dataset class for Multilingual LibriSpeech (MLS) dataset.
 
     Args:
         root (str or Path): Path to the directory where the dataset is found or downloaded.
-        language_name (str, optional): Choose the folder corresponding to the language,
+        
+        language_name (str, optional): 
+            Choose the folder corresponding to the language,
             for example ``"mls_english"``. For ``"opus"`` version, simply use ``"mls_english_opus".
             ``(default: ``"mls_german_opus"``).
-        split (str): Choose different dataset splits such as ``"train"``, ``"dev"``, and
+            
+        split (str):
+            Choose different dataset splits such as ``"train"``, ``"dev"``, and
             ``"test"``. (default: ``"train"``)
 
         low_resource: bool = False,
+        
         download (bool, optional):
             Whether to download the dataset if it is not found at root path. (default: ``False``).
+            
+        _ext_txt (str, optional):
+            Change the file extensions to choose the label type.
+            `trans.txt` corresponds to text labels.
+            `.ipa_trans.txt` corresponds to IPA labels.
+        
     """
     
 
@@ -72,8 +102,9 @@ class MultilingualLibriSpeech(Dataset):
             self._ext_audio = ".opus"
         else:
             self._ext_audio = ".flac"
-        self._ext_pytorch = ".pt"        
-        
+        self.espeak_map = espeak_map[language_name]
+        print(f'using {self.espeak_map} as espeak language')
+        self._ext_pytorch = ".pt"
         self._ext_txt = _ext_txt
         self.use_cache = use_cache
         ext_archive = '.tar.gz'
@@ -226,20 +257,36 @@ class MultilingualLibriSpeech(Dataset):
             except Exception as e:
                 pass        
         
-    def extract_labels(self, split_name, num_threads=0, IPA=False):        
+    def extract_labels(self, split_name, num_threads=0, Text=True, IPA=False):        
         root = os.path.join(self.download_path, split_name)
-        # check if labels already exist
-        labels = glob.glob(os.path.join(root, 'audio', '*','*','*.txt'))
+        # check if IPA labels already exist
+        if IPA:
+            ipa_labels = glob.glob(os.path.join(root, 'audio', '*','*','*.ipa_trans.txt'))
+            if len(ipa_labels)>0:
+                decision = input(f'IPA labels `ipa_trans.txt` in {split_name} folder already exist,'
+                                 f'do you want to extract `.ipa_trans.txt` labels again? [yes/no]\n'
+                                 f'Warning: All the `.ipa_trans.txt` files inside {split_name} folder will be removed.')
+                if decision.lower() == 'no':
+                    IPA=False
+                elif decision.lower() == 'yes':
+                    for i in ipa_labels:
+                        os.remove(i)
+                else:
+                    raise ValueError(f"'{decision}' is not a valid answer")
+                    
+                    
+        labels = glob.glob(os.path.join(root, 'audio', '*','*','*.trans.txt'))
         if len(labels)>0:
-            decision = input(f'.txt labels in {split_name} folder already exist, do you want to continue? [yes/no]'
-                             f'Warning: All the .txt files inside `audio` folder will be removed.')
+            decision = input(f'text labels `.trans.txt` in {split_name} folder already exist,'
+                             f'do you want to extract `.trans.txt` labels again? [yes/no]\n'
+                             f'Warning: All the `.trans.txt` files inside {split_name} folder will be removed.')
             if decision.lower() == 'no':
-                return
+                Text=False
             elif decision.lower() == 'yes':
                 for i in labels:
                     os.remove(i)
             else:
-                raise ValueError(f"'{decision}' is not a valid answer")
+                raise ValueError(f"'{decision}' is not a valid answer")                    
         
         # Loading all labels into a dictionary
         label_path = os.path.join(root, 'transcripts.txt')
@@ -251,15 +298,15 @@ class MultilingualLibriSpeech(Dataset):
                 labels[utterance_id] = text
 
         # Split labels when the audio exists        
-        audio_list = glob.glob(os.path.join(root, 'audio', '*','*','*'))
+        audio_list = glob.glob(os.path.join(root, 'audio', '*','*',f'*{self._ext_audio}'))
         
         if num_threads==0:
             for audio_file in tqdm.tqdm(audio_list, desc=f"Extracting {split_name} set"):
-                self._write_labels(audio_file,labels,root, IPA)
+                self._write_labels(audio_file,labels,root, Text, IPA)
         elif num_threads>0: # use multithread
             pool = mp.Pool(num_threads)
             for audio_file in tqdm.tqdm(audio_list, desc=f"Extracting {split_name} set"):
-                r = pool.apply_async(self._write_labels, args=(audio_file,labels,root,))
+                r = pool.apply_async(self._write_labels, args=(audio_file,labels,root,Text,IPA,))
     #             r.get()
             pool.close()
             pool.join()
@@ -343,16 +390,15 @@ class MultilingualLibriSpeech(Dataset):
                 torch.save(batch, processed_data_path)
         return batch
     
-    def _write_labels(self, audio_file, labels, root, IPA):
-        if IPA:
-            # only need this library when ipa extraction is needed
-            from phonemizer import phonemize, separator        
+    def _write_labels(self, audio_file, labels, root, Text, IPA):
         label_id = os.path.basename(audio_file)[:-5]
         speaker_id, chapter_id, _ = label_id.split('_')
-        utterance = labels[label_id]
+        utterance = labels[label_id]          
+
         if IPA:
+            from phonemizer import phonemize, separator  
             ipa_sequence = phonemize(utterance.lower(),
-                                     language='en',
+                                     language=self.espeak_map,
                                      backend='espeak',
                                      strip=True,
                                      language_switch='remove-flags',
@@ -367,13 +413,14 @@ class MultilingualLibriSpeech(Dataset):
                 f.write(ipa_output + '\n')
 
 
-        # writing the text labels into each chapter        
-        output_file = os.path.join(root, 'audio', speaker_id, chapter_id,
-                                   speaker_id + '_' + chapter_id + '.trans.txt')
-        
-        txt_output = label_id + '\t' + utterance
-        with open(output_file, 'a') as f:    
-            f.write(txt_output)   
+        if Text:
+            # writing the text labels into each chapter        
+            output_file = os.path.join(root, 'audio', speaker_id, chapter_id,
+                                       speaker_id + '_' + chapter_id + '.trans.txt')
+
+            txt_output = label_id + '\t' + utterance
+            with open(output_file, 'a') as f:    
+                f.write(txt_output)   
             
              
 #------------------------Original Dataset from PyTorch----------------
