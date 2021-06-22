@@ -282,6 +282,8 @@ class MultilingualLibriSpeech(Dataset):
                              f'Warning: All the `.trans.txt` files inside {split_name} folder will be removed.')
             if decision.lower() == 'no':
                 Text=False
+                if IPA==False and Text==False:
+                    return
             elif decision.lower() == 'yes':
                 for i in labels:
                     os.remove(i)
