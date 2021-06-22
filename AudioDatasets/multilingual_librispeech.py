@@ -63,6 +63,7 @@ class MultilingualLibriSpeech(Dataset):
                  low_resource: bool = False,
                  one_hr=0,
                  use_cache: bool = False,
+                 refresh: bool = False,
                  sample_rate: int = None,
                  download: bool = False,
                  IPA: bool = False,
@@ -143,6 +144,14 @@ class MultilingualLibriSpeech(Dataset):
                 print(f'Using all data at {self._path}')
                 # It seems we don't need to + ._ext_audio
                 self._walker = sorted(str(p.stem) for p in Path(self._path).glob('audio/*/*/*' + self._ext_audio))
+                
+        if refresh==True:
+            if self.sample_rate:
+                print(f'Resampling audio files to {self.sample_rate}Hz. '
+                      f'You may change the `sample_rate` argument in the dataset class if you want')
+            else:
+                print(f'No sample_rate is given, audio files will not be resampled')                
+            self.clear_cache()
 
     def __getitem__(self, n):
         """Load the n-th sample from the dataset.
@@ -268,9 +277,9 @@ class MultilingualLibriSpeech(Dataset):
         By removing all the .pt files, ``__getitem__`` will downsample and
         save the .pt files again when ``use_cache=True``."""
         
-        cache_files = glob.glob(os.path.join(self.download_path,'*','*','*','*','*.pt'))
+        cache_files = glob.glob(os.path.join(self._path,'*','*','*','*.pt'))
         if len(cache_files)>0:
-            decision = input(f'{len(cache_files)} .pt files found, are you sure you want to remove them? [yes/no]')
+            decision = input(f'{len(cache_files)} .pt files found, confirm clearing cache? [yes/no]')
             if decision.lower()=='yes':
                 for i in cache_files:
                     os.remove(i)
@@ -308,7 +317,6 @@ class MultilingualLibriSpeech(Dataset):
             waveform, sample_rate = torchaudio.load(file_audio)
             if sample_rate!=self.sample_rate and self.sample_rate!=None: # If the sample_rate is above 16k, downsample it
                 waveform = kaldi.resample_waveform(waveform, sample_rate, 16000)
-#                 print(f'downsampling...')
                 
             # Load text
             with open(file_text) as ft:
@@ -332,7 +340,6 @@ class MultilingualLibriSpeech(Dataset):
                      "utterance_id": int(utterance_id)
                     }
             if self.use_cache==True:
-#                 print(f'saving...')
                 torch.save(batch, processed_data_path)
         return batch
     
