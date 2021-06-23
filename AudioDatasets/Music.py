@@ -11,9 +11,6 @@ import soundfile
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from .constants import *
-from .midi import parse_midi
-
 from torchaudio.datasets.utils import (
     download_url,
     extract_archive,
@@ -29,15 +26,53 @@ TODA:
 
 
 class PianoRollAudioDataset(Dataset):
-    def __init__(self, path, groups=None, sequence_length=None, seed=42, refresh=False, device='cpu'):
-        self.path = path
-        self.groups = groups if groups is not None else self.available_groups()
+    def __init__(self,
+                 groups=None,
+                 sequence_length=None,
+                 seed=42,
+                 refresh=False,
+                 device='cpu',
+                 download=False):
+        
+        
         self.sequence_length = sequence_length
         self.device = device
-        self.random = np.random.RandomState(seed)
+        self.random = np.random.RandomState(seed) # for spectrogram segmentation
         self.refresh = refresh
-
         self.data = []
+        
+        if download:
+            if os.path.isdir(self.root):
+                print(f'Dataset folder exists, skipping download...')
+                decision = input(f"Do you want to extract {self.name_archive+self.ext_archive} again?\n"+
+                                 f"This action will overwrite exsiting files, do you still want to continue? [yes/no]")                
+            else:
+                decision='yes' 
+                if not os.path.isdir(self.root):
+                    print(f'Creating download path = {self.root}')
+                    os.makedirs(os.path.join(self.root))
+    #                 if os.path.isfile(download_path+ext_archive):
+    #                     print(f'.tar.gz file exists, proceed to extraction...')
+    #                 else:
+                if os.path.isfile(os.path.join(self.root, self.name_archive+self.ext_archive)):
+                    print(f'{download_path+ext_archive} already exists, proceed to extraction...')
+                else:
+                    print(f'downloading...')
+                    download_url(self.url, root, hash_value=self.checksum, hash_type='md5')
+
+            if decision.lower()=='yes':
+                print(f'Extracting main folder...')
+                extract_archive(os.path.join(self.root, self.name_archive+self.ext_archive))
+                for group in groups:
+                    group_path = os.path.join(path, i)
+                    if not os.path.isdir():
+                        print(f'Extracting sub-folder {group}...')
+                        extract_archive(os.path.join(self.root, self.name_archive+'zip'))
+                
+        else:
+            if not os.path.isdir(path):
+                raise ValueError(f'{path} not found, please specify the correct path')  
+                
         print(f"Loading {len(groups)} group{'s' if len(groups) > 1 else ''} "
               f"of {self.__class__.__name__} at {path}")
         for group in groups:
@@ -143,13 +178,75 @@ class PianoRollAudioDataset(Dataset):
         return data
     
     
-class MAPS(PianoRollAudioDataset):
-    def __init__(self, path='./MAPS', groups=None, sequence_length=None, overlap=True, seed=42, refresh=False, device='cpu'):
-        self.overlap = overlap
-        super().__init__(path, groups if groups is not None else ['ENSTDkAm', 'ENSTDkCl'], sequence_length, seed, refresh, device)
-
-    link = "https://amubox.univ-amu.fr/s/iNG0xc5Td1Nv4rR/download"
+class MAPS(Dataset):
+    def __init__(self,
+                 root='./MAPS',
+                 groups=None,
+                 sequence_length=None,
+                 overlap=True,
+                 seed=42, refresh=False,
+                 download=False,
+                 device='cpu'):
+        """
+        root (str): The folder that contains the MAPS dataset folder
+        """
         
+        self.overlap = overlap
+        super().__init__()
+        
+        self.url = "https://amubox.univ-amu.fr/s/iNG0xc5Td1Nv4rR/download"
+        self.checksum = '02a8f140dc9a7c85639b0c01e5522add'
+        self.root = root
+        self.ext_archive = '.tar'
+        self.name_archive = 'MAPS'    
+        groups = self.available_groups()
+
+        if download:
+            if os.path.isdir(os.path.join(self.root, self.name_archive)):
+                print(f'Dataset folder exists, skipping download...\n'
+                      f'Checking sub-folders...')
+                self.extracting_subfolders(groups)
+                                     
+            else:
+                if not os.path.isdir(self.root):
+                    print(f'Creating download path = {self.root}')
+                    os.makedirs(os.path.join(self.root))
+                    
+                print(f'Downloading...')
+                download_url(self.url, root, hash_value=self.checksum, hash_type='md5')
+                print(f'Extracting MAPS.tar')
+                extract_archive(os.path.join(self.root, self.name_archive+'.zip'))
+                print(f'Extracting sub-folder {group}...')
+                self.extracting_subfolders(groups)                
+        
+        else:
+            if os.path.isdir(root):
+                print(f'MAPS folder found, checking content integrity...')
+                self.extracting_subfolders(groups)   
+            else:
+                raise ValueError(f'{root} does not contain the MAPS folder, please specify the correct path')  
+                
+#         print(f"Loading {len(groups)} group{'s' if len(groups) > 1 else ''} "
+#               f"of {self.__class__.__name__} at {os.path.join(self.root, self.name_archive)}")
+        for group in groups:
+            for input_files in tqdm(self.files(group), desc=f'Loading group {group}'): #self.files is defined in MAPS class
+                self.data.append(self.load(*input_files)) # self.load is a function defined below. It first loads all data into         
+
+    def extracting_subfolders(self, groups):
+        for group in groups:
+            group_path = os.path.join(self.root, self.name_archive, group)
+            if not os.path.isdir(group_path):
+                print(f'Extracting sub-folder {group}...')
+                if group=='ENSTDkAm':
+                    # ENSTDkAm consists of ENSTDkAm1.zip and ENSTDkAm2.zip
+                    # Extract and merge both ENSTDkAm1.zip and ENSTDkAm2.zip as ENSTDkAm
+                    extract_archive(os.path.join(self.root, self.name_archive, group+'1.zip'))
+                    extract_archive(os.path.join(self.root, self.name_archive, group+'2.zip'))
+                else:
+                    extract_archive(os.path.join(self.root, self.name_archive, group+'.zip'))                           
+            else:
+                print(f'{group} exists')      
+                
     @classmethod
     def available_groups(cls):
         return ['AkPnBcht', 'AkPnBsdf', 'AkPnCGdD', 'AkPnStgb', 'ENSTDkAm', 'ENSTDkCl', 'SptkBGAm', 'SptkBGCl', 'StbgTGd2']
@@ -170,5 +267,8 @@ class MAPS(PianoRollAudioDataset):
         tsvs = [f.replace('/flac/', '/tsvs/').replace('.flac', '.tsv') for f in flacs]
         assert(all(os.path.isfile(flac) for flac in flacs))
         assert(all(os.path.isfile(tsv) for tsv in tsvs))
+        
+        print(f'len(flacs) = {len(flacs)}')
+        print(f'tsvs = {len(tsvs)}')
 
         return sorted(zip(flacs, tsvs))    
