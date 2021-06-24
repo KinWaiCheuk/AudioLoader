@@ -282,6 +282,8 @@ class MultilingualLibriSpeech(Dataset):
                              f'Warning: All the `.trans.txt` files inside {split_name} folder will be removed.')
             if decision.lower() == 'no':
                 Text=False
+                if IPA==False and Text==False:
+                    return
             elif decision.lower() == 'yes':
                 for i in labels:
                     os.remove(i)
@@ -363,7 +365,7 @@ class MultilingualLibriSpeech(Dataset):
             start_audioload = time.time()
             waveform, sample_rate = torchaudio.load(file_audio)
             if sample_rate!=self.sample_rate and self.sample_rate!=None: # If the sample_rate is above 16k, downsample it
-                waveform = kaldi.resample_waveform(waveform, sample_rate, 16000)
+                waveform = kaldi.resample_waveform(waveform, sample_rate, self.sample_rate)
                 
             # Load text
             with open(file_text) as ft:

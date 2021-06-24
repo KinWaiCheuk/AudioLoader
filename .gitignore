@@ -1,4 +1,5 @@
 .ipynb_checkpoints
+*.pyc
 __pycache__
 *.ipynb
 build
