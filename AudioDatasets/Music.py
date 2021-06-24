@@ -340,6 +340,10 @@ class MAPS(Dataset):
                 print(f'{group} extracted.')
                     
     def extract_tsv(self):
+        """
+        Convert midi files into tsv files for easy loading.
+        """
+        
         tsvs = glob(os.path.join(self.root, self.name_archive, '*', self.data_type, '*.tsv'))
         num_tsvs = len(tsvs)
         if num_tsvs>0:
@@ -443,16 +447,28 @@ class MAPS(Dataset):
         return len(self._walker)
     
     
-    def downsample(self, sr, output_format='flac'):
+    def resample(self, sr, output_format='flac'):
+        """
+        ```python
+        dataset.resample(sr, output_format='flac')
+        dataset = MAPS('./Folder', groups='all', ext_audio='.flac')
+        ```
+        
+        Resample audio clips to the target sample rate `sr` and the target format `output_format`.
+        This method requires `pydub`.
+        After resampling, you need to create another instance of `MAPS` in order to load the new
+        audio files instead of the original `.wav` files.
+        """
+        
         from pydub import AudioSegment        
-        def _downsample(wavfile, sr, output_format):
+        def _resample(wavfile, sr, output_format):
             sound = AudioSegment.from_wav(wavfile)
             sound = sound.set_frame_rate(sr) # downsample it to sr
             sound = sound.set_channels(1) # Convert Stereo to Mono
             sound.export(wavfile[:-3] + output_format, format=output_format)            
             
         Parallel(n_jobs=multiprocessing.cpu_count())\
-        (delayed(_downsample)(wavfile, sr, output_format)\
+        (delayed(_resample)(wavfile, sr, output_format)\
          for wavfile in tqdm(self._walker,
                              desc=f'Resampling to {sr}Hz .{output_format} files'))
 

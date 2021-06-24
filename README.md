@@ -5,7 +5,7 @@ This will be a collection of PyTorch audio datasets that are not available in th
 1. [Multilingual LibriSpeech (MLS) ](#multilingual-librispeech)
 
 **TODO:**
-1. MAPS
+1. [MAPS](#maps)
 1. MASETRO
 1. MusicNet
 
@@ -25,7 +25,7 @@ dataset = MultilingualLibriSpeech('../Speech', 'mls_polish', 'train', download=T
 
 This will download, unzip, and split the labels. To download `opus` version of the dataset, simply add the suffix `_opus`. e.g. `mls_polish_opus`.
 
-`__getitem__` returns a dictionary containing:
+`dataset[i]` returns a dictionary containing:
 
 ```python
 {'path': '../Speech/mls_polish_opus/test/audio/8758/8338/8758_8338_000066.opus',
@@ -57,9 +57,61 @@ It splits the single text label `.txt` file into smaller per chapter `.txt` file
 
 `num_threads`: Default `0`. Determine how many threads are used to split the labels. Useful for larger dataset like English.
 
-`IPA`: Default `False`. Set to `True` to extract IPA labels. Useful for phoneme recognition. Requires [phomenizer](https://github.com/bootphon/phonemizer) and [espeak](https://github.com/espeak-ng/espeak-ng). (Wokr in progress)
+`IPA`: Default `False`. Set to `True` to extract IPA labels. Useful for phoneme recognition. Requires [phomenizer](https://github.com/bootphon/phonemizer) and [espeak](https://github.com/espeak-ng/espeak-ng).
+
+## MAPS
+### Introduction
+[MAPS](https://amubox.univ-amu.fr/index.php/s/iNG0xc5Td1Nv4rR?path=%2F) dataset contains 9 folders, each folder contains 30 full music recordings and the aligned midi annoations. The two folders `ENSTDkAm` and `ENSTDkCl` contains real acoustic recording obtained from a YAMAHA Disklavier. The rest are synthesized audio clips. This ready-to-use PyTorch `Dataset` class will automatically set up most of the things.
+
+### Usage
+To use this dataset for the first time, set `download=True`. 
+
+```python
+dataset = MAPS('./Folder', groups='all', download=True)
+```
+
+This will download, unzip, and extract the `.tsv` labels.
+
+`dataset[i]` returns a dictionary containing:
+
+```python
+{'path': '../MusicDataset/MAPS/AkPnBcht/MUS/MAPS_MUS-hay_40_1_AkPnBcht.wav',
+ 'sr': 44100,
+ 'audio': tensor([[0., 0., 0.,  ..., 0., 0., 0.],
+         [0., 0., 0.,  ..., 0., 0., 0.]]),
+ 'midi': array([[  2.078941,   2.414137,  67.      ,  52.      ],
+        [  2.078941,   2.414137,  59.      ,  43.      ],
+        [  2.078941,   2.414137,  55.      ,  43.      ],
+        ...,
+        [394.169767, 394.867987,  59.      ,  56.      ],
+        [394.189763, 394.867987,  62.      ,  56.      ],
+        [394.209759, 394.867987,  67.      ,  62.      ]])}
+```
+
+Each row of `midi` represents a midi note, and it contains the information: `[start_time, end_time, Midi_pitch, velocity]`.
+
+The original audio clips are all steoro, users might want to convert them back to mono tracks first. Alternatively, the `.resample()` method can be also used to resample and convert tracks back to mono.
+
+### Other functionalities
+
+1. #### resample
+```python
+dataset.resample(sr, output_format='flac')
+dataset = MAPS('./Folder', groups='all', ext_audio='.flac')
+```
+Resample audio clips to the target sample rate `sr` and the target format `output_format`. This method requires `pydub`. After resampling, you need to create another instance of `MAPS` in order to load the new audio files instead of the original `.wav` files.
+
+
+2. #### extract_tsv
+```python
+dataset.extract_tsv()
+```
+Convert midi files into tsv files for easy loading.
+
+
 
 ## TODO
-1. Add `use_cache` feature such that the dataset will convert the dictionary into a pytorch `.pt` object when looping via the dataset for the first time. It decreases the loading time thereafter by reading directly from the `.pt` files.
-    1. add `.flush()` method to clear the cache
-1. Add `.resample(sr)` method to allow users to resample the audio to the sampling rate they want.
+1. MusicNet
+1. MAESTRO
+
+
