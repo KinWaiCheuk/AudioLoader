@@ -42,7 +42,7 @@ _CHECKSUMS = {"mls_english_opus": "60390221eec6f456611563b37f0b052c",
 espeak_map = {"mls_english_opus": "en",
               "mls_german_opus":  "de",
               "mls_dutch_opus":   "nl",
-              "mls_french_opus":  "fr",
+              "mls_french_opus":  "fr-fr",
               "mls_spanish_opus": "es",
               "mls_italian_opus": "it",
               "mls_portuguese_opus": "pt-pt",
@@ -142,13 +142,13 @@ class MultilingualLibriSpeech(Dataset):
                 extract_archive(download_path+ext_archive)
 
 
-            print(f'Splitting utterance labels, it might take hours for large languages such as English.')
-            thread_num = input(f"How many threads do you want to use?\n"+
-                               f"[If you want to use single-thread, enter 0]")
-            thread_num = int(thread_num)
-            self.extract_labels('train', num_threads=thread_num, IPA=False)
-            self.extract_labels('dev', num_threads=thread_num, IPA=False)
-            self.extract_labels('test', num_threads=thread_num, IPA=False)
+            print(f'Splitting utterance labels, it might take a long time for large languages such as English.')
+#             thread_num = input(f"How many threads do you want to use?\n"+
+#                                f"[If you want to use single-thread, enter 0]")
+#             thread_num = int(thread_num)
+            self.extract_labels('train', num_threads=0, IPA=False)
+            self.extract_labels('dev', num_threads=0, IPA=False)
+            self.extract_labels('test', num_threads=0, IPA=False)
         
         if os.path.isdir(self._path):
             pass
