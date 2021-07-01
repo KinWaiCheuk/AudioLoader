@@ -397,7 +397,7 @@ class MAPS(Dataset):
 #         label = torch.zeros(n_steps, n_keys, dtype=torch.uint8)
 #         velocity = torch.zeros(n_steps, n_keys, dtype=torch.uint8)
 
-        midi = np.loadtxt(tsv_path, delimiter='\t', skiprows=1)
+        tsv = np.loadtxt(tsv_path, delimiter='\t', skiprows=1)
 
 #         for onset, offset, note, vel in midi:
 #             left = int(round(onset * SAMPLE_RATE / HOP_LENGTH)) # Convert time to time step
@@ -414,7 +414,7 @@ class MAPS(Dataset):
 #             velocity[left:frame_right, f] = vel
 
 #         data = dict(path=audio_path, audio=audio, label=label, velocity=velocity)
-        data = dict(path=audio_path, sr=sr, audio=waveform, midi=midi)
+        data = dict(path=audio_path, sr=sr, audio=waveform, tsv=tsv)
         torch.save(data, saved_data_path)
         return data        
 
