@@ -252,7 +252,6 @@ class MAPS(Dataset):
                  root='./MAPS',
                  groups='all',
                  data_type='MUS',
-                 sequence_length=None,
                  overlap=True,
                  refresh=False,
                  download=False,
