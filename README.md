@@ -92,6 +92,16 @@ Each row of `midi` represents a midi note, and it contains the information: `[st
 
 The original audio clips are all steoro, users might want to convert them back to mono tracks first. Alternatively, the `.resample()` method can be also used to resample and convert tracks back to mono.
 
+### Getting a batch of audio segment
+To generate a batch of audio segments and piano rolls, `collect_batch(x, hop_size, sequence_length)` should be used as the `collate_fn` of PyTorch DataLoader. The `hop_size` for `collect_batch` should be same as the spectrogram hop_size, so that the piano roll obtained aligns with the spectrogram.
+
+```python
+loader = DataLoader(dataset, batch_size=4, collate_fn=lambda x: collect_batch(x, hop_size, sequence_length))
+for batch in loader:
+    audios = batch['audio'].to(device)
+    frames = batch['frame'].to(device)
+```
+
 ### Other functionalities
 
 1. #### resample
