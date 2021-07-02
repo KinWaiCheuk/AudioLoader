@@ -389,6 +389,8 @@ class MAPS(Dataset):
             return torch.load(saved_data_path)
         # Otherwise, create the .pt files
         waveform, sr = torchaudio.load(audio_path)
+        if waveform.dim()==2:
+            waveform = waveform.mean(0) # converting a stereo track into a mono track
         audio_length = len(waveform)
 
 #         n_keys = MAX_MIDI - MIN_MIDI + 1
@@ -413,7 +415,7 @@ class MAPS(Dataset):
 #             label[frame_right:offset_right, f] = 1
 #             velocity[left:frame_right, f] = vel
 
-#         data = dict(path=audio_path, audio=audio, label=label, velocity=velocity)
+#         data = dict(path=audio_path, audio=audio, label=label, velocity=velocity)\
         data = dict(path=audio_path, sr=sr, audio=waveform, tsv=tsv)
         torch.save(data, saved_data_path)
         return data        
