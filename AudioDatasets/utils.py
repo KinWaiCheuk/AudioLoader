@@ -74,3 +74,33 @@ def get_segment(data, hop_size, sequence_length=None, max_midi=108, min_midi=21)
     # print(f"result['audio'].shape = {result['audio'].shape}")
     # print(f"result['label'].shape = {result['label'].shape}")
     return result
+
+
+def collect_batch(batch, hop_size, sequence_length, max_midi=108, min_midi=21):
+    frame = []
+    onset = []
+    offset = []
+    velocity = []
+    audio = torch.empty(len(batch), sequence_length)
+    path = []
+    
+    # cut the audio into same sequence length and collect them
+    for idx, sample in enumerate(batch):
+        results = get_segment(sample, hop_size, sequence_length, max_midi, min_midi)
+        frame.append(results['frame'])
+        onset.append(results['onset'])
+        offset.append(results['offset'])
+        velocity.append(results['velocity'])
+        audio[idx] = results['audio']
+        path.append(results['path'])
+        
+
+    output_batch = {'audio': audio,
+                    'frame': torch.tensor(frame).float(),
+                    'onset': torch.tensor(onset).float(), 
+                    'offset': torch.tensor(offset).float(),
+                    'velocity': torch.tensor(velocity).float(),
+                    'path': path
+                     }
+    
+    return output_batch    
