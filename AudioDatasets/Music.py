@@ -252,7 +252,6 @@ class MAPS(Dataset):
                  root='./MAPS',
                  groups='all',
                  data_type='MUS',
-                 sequence_length=None,
                  overlap=True,
                  refresh=False,
                  download=False,
@@ -390,6 +389,8 @@ class MAPS(Dataset):
             return torch.load(saved_data_path)
         # Otherwise, create the .pt files
         waveform, sr = torchaudio.load(audio_path)
+        if waveform.dim()==2:
+            waveform = waveform.mean(0) # converting a stereo track into a mono track
         audio_length = len(waveform)
 
 #         n_keys = MAX_MIDI - MIN_MIDI + 1
@@ -398,7 +399,7 @@ class MAPS(Dataset):
 #         label = torch.zeros(n_steps, n_keys, dtype=torch.uint8)
 #         velocity = torch.zeros(n_steps, n_keys, dtype=torch.uint8)
 
-        midi = np.loadtxt(tsv_path, delimiter='\t', skiprows=1)
+        tsv = np.loadtxt(tsv_path, delimiter='\t', skiprows=1)
 
 #         for onset, offset, note, vel in midi:
 #             left = int(round(onset * SAMPLE_RATE / HOP_LENGTH)) # Convert time to time step
@@ -414,8 +415,8 @@ class MAPS(Dataset):
 #             label[frame_right:offset_right, f] = 1
 #             velocity[left:frame_right, f] = vel
 
-#         data = dict(path=audio_path, audio=audio, label=label, velocity=velocity)
-        data = dict(path=audio_path, sr=sr, audio=waveform, midi=midi)
+#         data = dict(path=audio_path, audio=audio, label=label, velocity=velocity)\
+        data = dict(path=audio_path, sr=sr, audio=waveform, tsv=tsv)
         torch.save(data, saved_data_path)
         return data        
 
