@@ -40,3 +40,37 @@ def tsv2roll(tsv, audio_length, sample_rate, hop_size, max_midi, min_midi):
         
         
     return pianoroll, velocity_roll
+
+
+
+def get_segment(data, hop_size, sequence_length=None, max_midi=108, min_midi=21):
+    result = dict(path=data['path'])
+    audio_length = len(data['audio'])
+    pianoroll, velocity_roll = tsv2roll(data['tsv'], audio_length, data['sr'], hop_size, max_midi, min_midi)
+    
+    if sequence_length is not None:
+        # slicing audio
+        begin = np.random.randint(audio_length - sequence_length)
+#         begin = 1000 # for debugging
+        end = begin + sequence_length
+        result['audio'] = data['audio'][begin:end]
+        
+        # slicing pianoroll
+        step_begin = begin // hop_size
+        n_steps = sequence_length // hop_size
+        step_end = step_begin + n_steps
+        labels = pianoroll[step_begin:step_end, :]
+        result['velocity'] = velocity_roll[step_begin:step_end, :]
+    else:
+        result['audio'] = data['audio']
+        labels = pianoroll
+        result['velocity'] = velocity_roll
+
+#     result['audio'] = result['audio'].float().div_(32768.0) # converting to float by dividing it by 2^15
+    result['onset'] = (labels == 3)
+    result['offset'] = (labels == 1)
+    result['frame'] = (labels > 1)
+    result['velocity'] = result['velocity']
+    # print(f"result['audio'].shape = {result['audio'].shape}")
+    # print(f"result['label'].shape = {result['label'].shape}")
+    return result
