@@ -19,14 +19,14 @@ def get_version(rel_path):
         raise RuntimeError("Unable to find version string.")    
     
 setuptools.setup(
-    name="AudioDatasets", # Replace with your own username
-    version=get_version("AudioDatasets/__init__.py"),
+    name="AudioLoader", # Replace with your own username
+    version=get_version("AudioLoader/__init__.py"),
     author="KinWaiCheuk",
     author_email="u3500684@connect.hku.hk",
-    description="A collection of PyTorch audio datasets",
+    description="A collection of PyTorch audio datasets for speech and music applications",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/KinWaiCheuk/nnAudio",
+    url="https://github.com/KinWaiCheuk/AudioLoader",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
