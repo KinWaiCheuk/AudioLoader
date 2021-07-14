@@ -1,5 +1,5 @@
-# AudioDatasets
-This will be a collection of PyTorch audio datasets that are not available in the official PyTorch dataset yet. I am building various one-click-ready audio datasets for my research, and I hope it will also benefit other people. 
+# AudioLoader
+This will be a collection of PyTorch audio datasets that are not available in the official PyTorch dataset and torchaudio dataset yet. I am building various one-click-ready audio datasets for my research, and I hope it will also benefit other people. 
 
 **Currently supported datasets:**
 1. [Multilingual LibriSpeech (MLS) ](#multilingual-librispeech)
@@ -14,6 +14,8 @@ This will be a collection of PyTorch audio datasets that are not available in th
 
 ## Multilingual LibriSpeech
 ### Introduction
+This is a custom PyTorch Dataset for Multilingual LibriSpeech (MLS).
+
 [Multilingual LibriSpeech (MLS)](http://www.openslr.org/94/) contains 8 languages. This ready-to-use PyTorch `Dataset` class allows users to set up this dataset by just calling the `MultilingualLibriSpeech` class. The original dataset put all utterance labels into a single `.txt` file. For larger languages such as English, it causes a slow label loading. This custom `Dataset` class automatically splits the labels into smaller sizes.
 
 ### Usage
