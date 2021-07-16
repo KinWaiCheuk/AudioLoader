@@ -38,6 +38,21 @@ def check_md5(path, md5_hash):
         print(f'md5 checksum passed')
 
 # Helper functions for midi to tsv conversions
+def parse_csv(path):
+    with open(path, newline='') as csvfile:
+        csv_reader = csv.reader(csvfile)
+        next(csv_reader, None) # skipping the header
+        notes = [] # container for storing tsv entries
+        for row in csv_reader:
+            onset = int(row[0])/44100 # converting samples to second
+            offset = int(row[1])/44100
+            pitch = int(row[3])
+            velocity = 127
+            note = (onset, offset, pitch, velocity)
+            notes.append(note)
+
+    return np.array(notes)
+
 def parse_midi(path):
     """open midi file and return np.array of (onset, offset, note, velocity) rows"""
     midi = MidiFile(path)
@@ -77,6 +92,11 @@ def parse_midi(path):
         notes.append(note)
 
     return np.array(notes)
+
+def process_csv(input_file, output_file):
+    """Parsing CSV files from MusicNet"""
+    csv_data = parse_csv(input_file)
+    np.savetxt(output_file, csv_data, '%.6f', '\t', header='onset\toffset\tnote\tvelocity')
 
 
 def process_midi(input_file, output_file):
@@ -505,3 +525,6 @@ class MAPS(Dataset):
                 
                 
                 
+
+        
+        
