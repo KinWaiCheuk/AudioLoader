@@ -27,6 +27,16 @@ TODA:
 2. 
 """
 
+def check_md5(path, md5_hash):
+    with open(path, 'rb') as file_to_check:
+        # read contents of the file
+        data = file_to_check.read()    
+        # pipe contents of the file through
+        md5_returned = hashlib.md5(data).hexdigest()
+
+        assert md5_returned==md5_hash, f"{os.path.basename(path)} is corrupted, please download it again"
+        print(f'md5 checksum passed')
+
 # Helper functions for midi to tsv conversions
 def parse_midi(path):
     """open midi file and return np.array of (onset, offset, note, velocity) rows"""
@@ -69,7 +79,7 @@ def parse_midi(path):
     return np.array(notes)
 
 
-def process(input_file, output_file):
+def process_midi(input_file, output_file):
     midi_data = parse_midi(input_file)
     np.savetxt(output_file, midi_data, '%.6f', '\t', header='onset\toffset\tnote\tvelocity')
 
@@ -249,7 +259,7 @@ class PianoRollAudioDataset(Dataset):
     
 class MAPS(Dataset):
     def __init__(self,
-                 root='./MAPS',
+                 root='./',
                  groups='all',
                  data_type='MUS',
                  overlap=True,
@@ -354,7 +364,7 @@ class MAPS(Dataset):
         if decision.lower()=='yes':
             midis = glob(os.path.join(self.root, self.name_archive, '*', self.data_type, '*.mid')) # loading lists of midi    
             Parallel(n_jobs=multiprocessing.cpu_count())\
-                    (delayed(process)(in_file, out_file) for in_file, out_file in files(midis, output_dir=False))
+                    (delayed(process_midi)(in_file, out_file) for in_file, out_file in files(midis, output_dir=False))
                 
     def available_groups(self, group):
         if group=='train':
@@ -492,3 +502,6 @@ class MAPS(Dataset):
                     os.remove(i)
             elif decision.lower()=='no':
                 print(f'aborting...')
+                
+                
+                
