@@ -366,6 +366,7 @@ class MultilingualLibriSpeech(Dataset):
             waveform, sample_rate = torchaudio.load(file_audio)
             if sample_rate!=self.sample_rate and self.sample_rate!=None: # If the sample_rate is above 16k, downsample it
                 waveform = kaldi.resample_waveform(waveform, sample_rate, self.sample_rate)
+                sample_rate=self.sample_rate
                 
             # Load text
             with open(file_text) as ft:
