@@ -3,20 +3,20 @@ This will be a collection of PyTorch audio datasets that are not available in th
 
 **Currently supported datasets:**
 1. [Multilingual LibriSpeech (MLS) ](#multilingual-librispeech)
+1. [MAPS](#maps)
 
 **TODO:**
-1. [MAPS](#maps)
 1. MASETRO
 1. MusicNet
 
 ## Installation
-`pip install git+https://github.com/KinWaiCheuk/AudioDatasets.git`
+`pip install git+https://github.com/KinWaiCheuk/AudioLoader.git`
 
 ## Multilingual LibriSpeech
 ### Introduction
 This is a custom PyTorch Dataset for Multilingual LibriSpeech (MLS).
 
-[Multilingual LibriSpeech (MLS)](http://www.openslr.org/94/) contains 8 languages. This ready-to-use PyTorch `Dataset` class allows users to set up this dataset by just calling the `MultilingualLibriSpeech` class. The original dataset put all utterance labels into a single `.txt` file. For larger languages such as English, it causes a slow label loading. This custom `Dataset` class automatically splits the labels into smaller sizes.
+[Multilingual LibriSpeech (MLS)](http://www.openslr.org/94/) contains 8 languages. This ready-to-use PyTorch `Dataset` allows users to set up this dataset by just calling the `MultilingualLibriSpeech` class. The original dataset put all utterance labels into a single `.txt` file. For larger languages such as English, it causes a slow label loading. This custom `Dataset` class automatically splits the labels into smaller sizes.
 
 ### Usage
 To use this dataset for the first time, set `download=True`. 
@@ -63,7 +63,7 @@ It splits the single text label `.txt` file into smaller per chapter `.txt` file
 
 ## MAPS
 ### Introduction
-[MAPS](https://amubox.univ-amu.fr/index.php/s/iNG0xc5Td1Nv4rR?path=%2F) dataset contains 9 folders, each folder contains 30 full music recordings and the aligned midi annoations. The two folders `ENSTDkAm` and `ENSTDkCl` contains real acoustic recording obtained from a YAMAHA Disklavier. The rest are synthesized audio clips. This ready-to-use PyTorch `Dataset` class will automatically set up most of the things.
+[MAPS](https://amubox.univ-amu.fr/index.php/s/iNG0xc5Td1Nv4rR?path=%2F) dataset contains 9 folders, each folder contains 30 full music recordings and the aligned midi annoations. The two folders `ENSTDkAm` and `ENSTDkCl` contains real acoustic recording obtained from a YAMAHA Disklavier. The rest are synthesized audio clips. This ready-to-use PyTorch `Dataset` will automatically set up most of the things.
 
 ### Usage
 To use this dataset for the first time, set `download=True`. 
