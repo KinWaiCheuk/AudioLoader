@@ -525,6 +525,105 @@ class MAPS(Dataset):
                 
                 
                 
+class MusicNet(Dataset):
+    def __init__(self,
+                 root='./',
+                 groups='all',
+                 data_type='MUS',
+                 refresh=False,
+                 download=False,
+                 ext_audio='.wav'):
+        """
+        root (str): The folder that contains the MusicNet dataset folder
+        groups (list or str): Choose which sub-folders to load. Avaliable choices are 
+                              `train`, `test`, `all`. Default is `all`, which means loading
+                               all sub-folders. Alternatively, users can provide a list of
+                               subfolders to be loaded.  
+        data_type (str): Four different types of data are available, `MUS`, `ISOL`, `RAND`, `UCHO`.
+                         `MUS` is the default setting which stands for full music pieces .
+                         
+        """
+        
+        super().__init__()
+        
+        self.url = "https://homes.cs.washington.edu/~thickstn/media/musicnet.tar.gz"
+        self.checksum = 'd41d8cd98f00b204e9800998ecf8427e'
+        self.root = root
+        self.ext_archive = '.tar.gz'
+        self.name_archive = 'musicnet'
+        self.data_type = data_type
+        self.ext_audio = ext_audio
+        self.refresh = refresh
+             
+        groups = groups if isinstance(groups, list) else self.available_groups(groups)
+        self.groups = groups
 
+        if download:
+            if os.path.isdir(os.path.join(self.root, self.name_archive)):
+                print(f'Dataset folder exists, skipping download...\n'
+                      f'Checking sub-folders...')
+#                 self.extract_subfolders(groups)
+                self.extract_tsv()
+            elif os.path.isfile(os.path.join(self.root, self.name_archive+self.ext_archive)):
+                print(f'.tar file exists, skipping download...')
+                print(f'Extracting MAPS.tar')
+                extract_archive(os.path.join(self.root, self.name_archive+self.ext_archive))
+#                 self.extract_subfolders(groups)
+                self.extract_tsv()                
+            else:
+                if not os.path.isdir(self.root):
+                    print(f'Creating download path = {self.root}')
+                    os.makedirs(os.path.join(self.root))
+                    
+                print(f'Downloading from {self.url}...')
+                download_url(self.url, root, hash_value=self.checksum, hash_type='md5')
+                print(f'Extracting musicnet.tar.gz')
+                extract_archive(os.path.join(self.root, self.name_archive+self.ext_archive))
+#                 self.extract_subfolders(groups)
+                self.extract_tsv()
+        
+        else:
+            if os.path.isdir(os.path.join(root, self.name_archive)):
+                print(f'MAPS folder found, checking content integrity...')
+                self.extract_subfolders(groups)   
+            else:
+                raise ValueError(f'{root} does not contain the MAPS folder, '
+                                 f'please specify the correct path or download it by setting `download=True`')  
+                
+#         print(f"Loading {len(groups)} group{'s' if len(groups) > 1 else ''} "
+#               f"of {self.__class__.__name__} at {os.path.join(self.root, self.name_archive)}")
+        self._walker = []
+        for group in groups:
+            wav_paths = glob(os.path.join(self.root, self.name_archive, group, data_type, f'*{ext_audio}'))
+            self._walker.extend(wav_paths)
+                
+        print(f'{len(self._walker)} audio files found')
+
+                    
+    def csv2tsv(self):
+        """
+        Convert midi files into tsv files for easy loading.
+        """
+        
+        tsvs = glob(os.path.join(self.root, self.name_archive, '*', self.data_type, '*.tsv'))
+        num_tsvs = len(tsvs)
+        if num_tsvs>0:
+            decision = input(f"There are already {num_tsvs} tsv files.\n"+
+                             f"Do you want to overwrite them? [yes/no]")
+        elif num_tsvs==0:
+            decision='yes'
+            
+        if decision.lower()=='yes':
+            midis = glob(os.path.join(self.root, self.name_archive, '*', self.data_type, '*.mid')) # loading lists of midi    
+            Parallel(n_jobs=multiprocessing.cpu_count())\
+                    (delayed(process)(in_file, out_file) for in_file, out_file in files(midis, output_dir=False))
+                
+    def available_groups(self, group):
+        if group=='train':
+            return ['AkPnBcht', 'AkPnBsdf', 'AkPnCGdD', 'AkPnStgb', 'SptkBGAm', 'SptkBGCl', 'StbgTGd2']
+        elif group=='test':
+            return ['ENSTDkAm', 'ENSTDkCl']
+        elif group=='all':
+            return ['AkPnBcht', 'AkPnBsdf', 'AkPnCGdD', 'AkPnStgb', 'ENSTDkAm', 'ENSTDkCl', 'SptkBGAm', 'SptkBGCl', 'StbgTGd2']
         
         
