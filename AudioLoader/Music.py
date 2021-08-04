@@ -343,7 +343,7 @@ class MAPS(Dataset):
             
         if preload:
             self._preloader = []
-            for i in range(len(self._walker)):
+            for i in tqdm(range(len(self._walker)),desc=f'Pre-loading data to RAM'):
                 self._preloader.append(self.load(i))
          
         print(f'{len(self._walker)} audio files found')
@@ -450,43 +450,54 @@ class MAPS(Dataset):
                     velocity_roll=velocity_roll)
         torch.save(data, saved_data_path)
         return data      
-    
+
+    def get_segment(self, data, hop_size, sequence_length=None, max_midi=108, min_midi=21):
+        result = dict(path=data['path'])
+        audio_length = len(data['audio'])
+        pianoroll = data['pianoroll']
+        velocity_roll = data['velocity_roll']
+    #     start = time.time()
+    #     pianoroll, velocity_roll = tsv2roll(data['tsv'], audio_length, data['sr'], hop_size, max_midi, min_midi)
+    #     print(f'tsv2roll time used = {time.time()-start}')
+
+        if sequence_length is not None:
+            # slicing audio
+            begin = self.random.randint(audio_length - sequence_length)
+    #         begin = 1000 # for debugging
+            end = begin + sequence_length
+            result['audio'] = data['audio'][begin:end]
+
+            # slicing pianoroll
+            step_begin = begin // hop_size
+            n_steps = sequence_length // hop_size
+            step_end = step_begin + n_steps
+            labels = pianoroll[step_begin:step_end, :]
+            result['velocity'] = velocity_roll[step_begin:step_end, :]
+        else:
+            result['audio'] = data['audio']
+            labels = pianoroll
+            result['velocity'] = velocity_roll
+
+    #     result['audio'] = result['audio'].float().div_(32768.0) # converting to float by dividing it by 2^15
+        result['onset'] = (labels == 3).float()
+        result['offset'] = (labels == 1).float()
+        result['frame'] = (labels > 1).float()
+        result['velocity'] = result['velocity'].float().div_(128.0) # not yet normalized
+        # print(f"result['audio'].shape = {result['audio'].shape}")
+        # print(f"result['label'].shape = {result['label'].shape}")
+        return result        
+
     
     def __getitem__(self, index):
         if self.preload:
-            return self._preloader[index]
+            data = self._preloader[index]
+            result = self.get_segment(data, self.HOP_LENGTH, self.sequence_length)
+            result['sr'] = data['sr']
+            return result            
         else:
             data = self.load(index)
-            result = dict(path=data['path'])
-            pianoroll = data['pianoroll']
-            velocity_roll = data['velocity_roll']
-            if self.sequence_length is not None:
-                audio_length = len(data['audio'])
-                step_begin = self.random.randint(audio_length - self.sequence_length) // self.HOP_LENGTH
-    #             print(f'step_begin = {step_begin}')
-
-                n_steps = self.sequence_length // self.HOP_LENGTH
-                step_end = step_begin + n_steps
-
-                begin = step_begin * self.HOP_LENGTH
-    #             print(f'begin = {begin}')
-                end = begin + self.sequence_length
-
-                result['audio'] = data['audio'][begin:end]
-                result['label'] = pianoroll[step_begin:step_end, :]
-                result['velocity'] = velocity_roll[step_begin:step_end, :]
-                result['start_idx'] = begin
-
-            else:
-                result['audio'] = data['audio']
-                result['label'] = pianoroll
-                result['velocity'] = velocity_roll
-
-            result['audio'] = result['audio']
-            result['onset'] = (result['label'] == 3).float()
-            result['offset'] = (result['label'] == 1).float()
-            result['frame'] = (result['label'] > 1).float()
-            result['velocity'] = result['velocity'].float()
+            result = self.get_segment(data, self.HOP_LENGTH, self.sequence_length)
+            result['sr'] = data['sr']
             return result
 
 #     def files(self, group, music_type):
@@ -724,4 +735,5 @@ class MusicNet(PianoRollAudioDataset):
             return ['AkPnBcht', 'AkPnBsdf', 'AkPnCGdD', 'AkPnStgb', 'ENSTDkAm', 'ENSTDkCl', 'SptkBGAm', 'SptkBGCl', 'StbgTGd2']
         
         
+
 
