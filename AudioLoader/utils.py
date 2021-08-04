@@ -44,70 +44,70 @@ def tsv2roll(tsv, audio_length, sample_rate, hop_size, max_midi, min_midi):
 
 
 
-def get_segment(data, hop_size, sequence_length=None, max_midi=108, min_midi=21):
-    result = dict(path=data['path'])
-    audio_length = len(data['audio'])
-    pianoroll = data['pianoroll']
-    velocity_roll = data['velocity_roll']
-#     start = time.time()
-#     pianoroll, velocity_roll = tsv2roll(data['tsv'], audio_length, data['sr'], hop_size, max_midi, min_midi)
-#     print(f'tsv2roll time used = {time.time()-start}')
+# def get_segment(data, hop_size, sequence_length=None, max_midi=108, min_midi=21):
+#     result = dict(path=data['path'])
+#     audio_length = len(data['audio'])
+#     pianoroll = data['pianoroll']
+#     velocity_roll = data['velocity_roll']
+# #     start = time.time()
+# #     pianoroll, velocity_roll = tsv2roll(data['tsv'], audio_length, data['sr'], hop_size, max_midi, min_midi)
+# #     print(f'tsv2roll time used = {time.time()-start}')
     
-    if sequence_length is not None:
-        # slicing audio
-        begin = np.random.randint(audio_length - sequence_length)
-#         begin = 1000 # for debugging
-        end = begin + sequence_length
-        result['audio'] = data['audio'][begin:end]
+#     if sequence_length is not None:
+#         # slicing audio
+#         begin = np.random.randint(audio_length - sequence_length)
+# #         begin = 1000 # for debugging
+#         end = begin + sequence_length
+#         result['audio'] = data['audio'][begin:end]
         
-        # slicing pianoroll
-        step_begin = begin // hop_size
-        n_steps = sequence_length // hop_size
-        step_end = step_begin + n_steps
-        labels = pianoroll[step_begin:step_end, :]
-        result['velocity'] = velocity_roll[step_begin:step_end, :]
-    else:
-        result['audio'] = data['audio']
-        labels = pianoroll
-        result['velocity'] = velocity_roll
+#         # slicing pianoroll
+#         step_begin = begin // hop_size
+#         n_steps = sequence_length // hop_size
+#         step_end = step_begin + n_steps
+#         labels = pianoroll[step_begin:step_end, :]
+#         result['velocity'] = velocity_roll[step_begin:step_end, :]
+#     else:
+#         result['audio'] = data['audio']
+#         labels = pianoroll
+#         result['velocity'] = velocity_roll
 
-#     result['audio'] = result['audio'].float().div_(32768.0) # converting to float by dividing it by 2^15
-    result['onset'] = (labels == 3)
-    result['offset'] = (labels == 1)
-    result['frame'] = (labels > 1)
-    result['velocity'] = result['velocity']
-    # print(f"result['audio'].shape = {result['audio'].shape}")
-    # print(f"result['label'].shape = {result['label'].shape}")
-    return result
+# #     result['audio'] = result['audio'].float().div_(32768.0) # converting to float by dividing it by 2^15
+#     result['onset'] = (labels == 3)
+#     result['offset'] = (labels == 1)
+#     result['frame'] = (labels > 1)
+#     result['velocity'] = result['velocity']
+#     # print(f"result['audio'].shape = {result['audio'].shape}")
+#     # print(f"result['label'].shape = {result['label'].shape}")
+#     return result
 
 
-def collect_batch(batch, hop_size, sequence_length, max_midi=108, min_midi=21):
-    frame = []
-    onset = []
-    offset = []
-    velocity = []
-    audio = torch.empty(len(batch), sequence_length)
-    path = []
+# def collect_batch(batch, hop_size, sequence_length, max_midi=108, min_midi=21):
+#     frame = []
+#     onset = []
+#     offset = []
+#     velocity = []
+#     audio = torch.empty(len(batch), sequence_length)
+#     path = []
     
-    # cut the audio into same sequence length and collect them
-    for idx, sample in enumerate(batch):
-        start = time.time()
-        results = get_segment(sample, hop_size, sequence_length, max_midi, min_midi)
-#         print(f'get_segment time used = {time.time()-start}')        
-        frame.append(results['frame'])
-        onset.append(results['onset'])
-        offset.append(results['offset'])
-        velocity.append(results['velocity'])
-        audio[idx] = results['audio']
-        path.append(results['path'])
+#     # cut the audio into same sequence length and collect them
+#     for idx, sample in enumerate(batch):
+#         start = time.time()
+#         results = get_segment(sample, hop_size, sequence_length, max_midi, min_midi)
+# #         print(f'get_segment time used = {time.time()-start}')        
+#         frame.append(results['frame'])
+#         onset.append(results['onset'])
+#         offset.append(results['offset'])
+#         velocity.append(results['velocity'])
+#         audio[idx] = results['audio']
+#         path.append(results['path'])
         
 
-    output_batch = {'audio': audio,
-                    'frame': torch.tensor(frame).float(),
-                    'onset': torch.tensor(onset).float(), 
-                    'offset': torch.tensor(offset).float(),
-                    'velocity': torch.tensor(velocity).float(),
-                    'path': path
-                     }
+#     output_batch = {'audio': audio,
+#                     'frame': torch.tensor(frame).float(),
+#                     'onset': torch.tensor(onset).float(), 
+#                     'offset': torch.tensor(offset).float(),
+#                     'velocity': torch.tensor(velocity).float(),
+#                     'path': path
+#                      }
     
-    return output_batch    
+#     return output_batch    
