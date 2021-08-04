@@ -12,6 +12,7 @@ from tqdm import tqdm
 import multiprocessing
 from joblib import Parallel, delayed
 from mido import Message, MidiFile, MidiTrack
+from .utils import tsv2roll
 import torch
 from torch.utils.data import Dataset
 import torchaudio
@@ -260,6 +261,11 @@ class MAPS(Dataset):
                  overlap=True,
                  refresh=False,
                  download=False,
+                 preload=False,
+                 sequence_length=None,
+                 seed=42,
+                 HOP_LENGTH=512,
+                 
                  ext_audio='.wav'):
         """
         root (str): The folder that contains the MAPS dataset folder
@@ -283,6 +289,11 @@ class MAPS(Dataset):
         self.data_type = data_type
         self.ext_audio = ext_audio
         self.refresh = refresh
+        self.preload=preload
+        
+        self.sequence_length = sequence_length
+        self.random = np.random.RandomState(seed)
+        self.HOP_LENGTH = HOP_LENGTH
              
         groups = groups if isinstance(groups, list) else self.available_groups(groups)
         self.groups = groups
@@ -325,10 +336,16 @@ class MAPS(Dataset):
 #         print(f"Loading {len(groups)} group{'s' if len(groups) > 1 else ''} "
 #               f"of {self.__class__.__name__} at {os.path.join(self.root, self.name_archive)}")
         self._walker = []
+    
         for group in groups:
             wav_paths = glob(os.path.join(self.root, self.name_archive, group, data_type, f'*{ext_audio}'))
             self._walker.extend(wav_paths)
-                
+            
+        if preload:
+            self._preloader = []
+            for i in range(len(self._walker)):
+                self._preloader.append(self.load(i))
+         
         print(f'{len(self._walker)} audio files found')
 
     def extract_subfolders(self, groups):
@@ -373,7 +390,7 @@ class MAPS(Dataset):
             return ['AkPnBcht', 'AkPnBsdf', 'AkPnCGdD', 'AkPnStgb', 'ENSTDkAm', 'ENSTDkCl', 'SptkBGAm', 'SptkBGCl', 'StbgTGd2']
         
         
-    def __getitem__(self, index):
+    def load(self, index):
         """
         load an audio track and the corresponding labels
         Returns
@@ -389,6 +406,7 @@ class MAPS(Dataset):
             velocity: torch.ByteTensor, shape = [num_steps, midi_bins]
                 a matrix that contains MIDI velocity values at the frame locations
         """
+        
         audio_path = self._walker[index]
         tsv_path = audio_path.replace(self.ext_audio, '.tsv')
         saved_data_path = audio_path.replace(self.ext_audio, '.pt')
@@ -422,11 +440,54 @@ class MAPS(Dataset):
 #             label[onset_right:frame_right, f] = 2
 #             label[frame_right:offset_right, f] = 1
 #             velocity[left:frame_right, f] = vel
-
+        pianoroll, velocity_roll = tsv2roll(tsv, audio_length, sr, 512, max_midi=108, min_midi=21)
 #         data = dict(path=audio_path, audio=audio, label=label, velocity=velocity)\
-        data = dict(path=audio_path, sr=sr, audio=waveform, tsv=tsv)
+        data = dict(path=audio_path,
+                    sr=sr,
+                    audio=waveform,
+                    tsv=tsv,
+                    pianoroll=pianoroll,
+                    velocity_roll=velocity_roll)
         torch.save(data, saved_data_path)
-        return data        
+        return data      
+    
+    
+    def __getitem__(self, index):
+        if self.preload:
+            return self._preloader[index]
+        else:
+            data = self.load(index)
+            result = dict(path=data['path'])
+            pianoroll = data['pianoroll']
+            velocity_roll = data['velocity_roll']
+            if self.sequence_length is not None:
+                audio_length = len(data['audio'])
+                step_begin = self.random.randint(audio_length - self.sequence_length) // self.HOP_LENGTH
+    #             print(f'step_begin = {step_begin}')
+
+                n_steps = self.sequence_length // self.HOP_LENGTH
+                step_end = step_begin + n_steps
+
+                begin = step_begin * self.HOP_LENGTH
+    #             print(f'begin = {begin}')
+                end = begin + self.sequence_length
+
+                result['audio'] = data['audio'][begin:end]
+                result['label'] = pianoroll[step_begin:step_end, :]
+                result['velocity'] = velocity_roll[step_begin:step_end, :]
+                result['start_idx'] = begin
+
+            else:
+                result['audio'] = data['audio']
+                result['label'] = pianoroll
+                result['velocity'] = velocity_roll
+
+            result['audio'] = result['audio']
+            result['onset'] = (result['label'] == 3).float()
+            result['offset'] = (result['label'] == 1).float()
+            result['frame'] = (result['label'] > 1).float()
+            result['velocity'] = result['velocity'].float()
+            return result
 
 #     def files(self, group, music_type):
 #         return 
@@ -574,7 +635,7 @@ class MusicNet(PianoRollAudioDataset):
                 
         print(f'{len(self._walker)} audio files found')
  
-#     def __getitem__(self, index):
+#         def __getitem__(self, index):
 #         """
 #         load an audio track and the corresponding labels
 #         Returns

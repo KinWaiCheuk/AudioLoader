@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import time
 
 def tsv2roll(tsv, audio_length, sample_rate, hop_size, max_midi, min_midi):
     """
@@ -21,8 +22,8 @@ def tsv2roll(tsv, audio_length, sample_rate, hop_size, max_midi, min_midi):
     n_keys = max_midi - min_midi + 1 # Calutate number of bins for the piano roll
     n_steps = (audio_length - 1) // hop_size + 1 # Calulate number of timesteps for the piano roll
     
-    pianoroll = np.zeros((n_steps, n_keys), dtype=int)
-    velocity_roll = np.zeros((n_steps, n_keys), dtype=int)
+    pianoroll = torch.zeros((n_steps, n_keys), dtype=int)
+    velocity_roll = torch.zeros((n_steps, n_keys), dtype=int)
     
     for onset, offset, note, vel in tsv:
         left = int(round(onset * sample_rate / hop_size)) # Convert time to time step
@@ -46,7 +47,11 @@ def tsv2roll(tsv, audio_length, sample_rate, hop_size, max_midi, min_midi):
 def get_segment(data, hop_size, sequence_length=None, max_midi=108, min_midi=21):
     result = dict(path=data['path'])
     audio_length = len(data['audio'])
-    pianoroll, velocity_roll = tsv2roll(data['tsv'], audio_length, data['sr'], hop_size, max_midi, min_midi)
+    pianoroll = data['pianoroll']
+    velocity_roll = data['velocity_roll']
+#     start = time.time()
+#     pianoroll, velocity_roll = tsv2roll(data['tsv'], audio_length, data['sr'], hop_size, max_midi, min_midi)
+#     print(f'tsv2roll time used = {time.time()-start}')
     
     if sequence_length is not None:
         # slicing audio
@@ -86,7 +91,9 @@ def collect_batch(batch, hop_size, sequence_length, max_midi=108, min_midi=21):
     
     # cut the audio into same sequence length and collect them
     for idx, sample in enumerate(batch):
+        start = time.time()
         results = get_segment(sample, hop_size, sequence_length, max_midi, min_midi)
+#         print(f'get_segment time used = {time.time()-start}')        
         frame.append(results['frame'])
         onset.append(results['onset'])
         offset.append(results['offset'])
