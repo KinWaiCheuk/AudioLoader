@@ -304,7 +304,10 @@ class MAPS(Dataset):
                     print(f'Creating download path = {self.root}')
                     os.makedirs(os.path.join(self.root))
                     
-                print(f'Downloading from {self.url}...')
+                print(f'Downloading from {self.url}\n'
+                      f"If download won't start automatically, please visit "
+                      f"https://amubox.univ-amu.fr/index.php/s/iNG0xc5Td1Nv4rR "
+                      f"to download manually")
                 download_url(self.url, root, hash_value=self.checksum, hash_type='md5')
                 print(f'Extracting MAPS.tar')
                 extract_archive(os.path.join(self.root, self.name_archive+self.ext_archive))
@@ -660,3 +663,4 @@ class MusicNet(PianoRollAudioDataset):
             return ['AkPnBcht', 'AkPnBsdf', 'AkPnCGdD', 'AkPnStgb', 'ENSTDkAm', 'ENSTDkCl', 'SptkBGAm', 'SptkBGCl', 'StbgTGd2']
         
         
+
