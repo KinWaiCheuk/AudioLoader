@@ -129,8 +129,26 @@ def files(file_list, ext='.mid', output_dir=False):
 
 
 class AMTDataset(Dataset):
-    def __init__(self):
-        pass
+    def __init__(self,
+                 use_cache=True,
+                 download=False,
+                 preload=False,
+                 sequence_length=None,
+                 seed=42,
+                 hop_length=512,
+                 max_midi=108,
+                 min_midi=21,
+                 ext_audio='.wav'):
+        
+        self.use_cache = use_cache
+        self.download = download
+        self.preload=preload
+        self.sequence_length = sequence_length
+        self.random = np.random.RandomState(seed)
+        self.hop_length = hop_length
+        self.max_midi = max_midi
+        self.min_midi = min_midi
+        self.ext_audio = ext_audio
     
     
     def load(self, index):
@@ -276,29 +294,64 @@ class MAPS(AMTDataset):
                  groups='all',
                  data_type='MUS',
                  overlap=True,
-                 use_cache=True,
-                 download=False,
-                 preload=False,
-                 sequence_length=None,
-                 seed=42,
-                 hop_length=512,
-                 max_midi=108,
-                 min_midi=21,
-                 ext_audio='.wav'):
+                 **kwargs):
         """
         This Dataset inherits from AMTDataset.
-        root (str): The folder that contains the MAPS dataset folder
-        groups (list or str): Choose which sub-folders to load. Avaliable choices are 
-                              `train`, `test`, `all`. Default is `all`, which means loading
-                               all sub-folders. Alternatively, users can provide a list of
-                               subfolders to be loaded.  
-        data_type (str): Four different types of data are available, `MUS`, `ISOL`, `RAND`, `UCHO`.
-                         `MUS` is the default setting which stands for full music pieces .
-                         
+        
+        Parameters
+        ----------        
+        root: str
+            The folder that contains the MAPS dataset folder
+
+        groups: list or str
+            Choose which sub-folders to load. Avaliable choices are 
+            `train`, `test`, `all`.
+            Default: `all`, which stands for loading all sub-folders.
+            Alternatively, users can provide a list of subfolders to be loaded.
+
+        data_type: str
+            Four different types of data are available, `MUS`, `ISOL`, `RAND`, `UCHO`.
+            Default: `MUS`, which stands for full music pieces.
+            
+        overlap: bool
+            TODO: To control if overlapping songs in the train set to be load.
+            Default: False, which means that it will ignore audio clips in the train set
+                     which already exist in the test set ('ENSTDkAm' and 'ENSTDkCl')
+
+        sequence_length: int
+            The length of audio segment to be extracted.
+            Since the audio is paired with a tsv file,
+            changing this will automactially change the piano roll lenght too.
+            Default: None
+
+        seed: int
+            This seed controls the segmentation indices, which allows the data loading to be reproducible.
+            Default: 42
+            
+        hop_length: int
+            It should be the same as the spectrogram hop_length,
+            so that the piano roll timesteps will aligned with the spectrograms.
+            Default: 512     
+
+        max_midi: int
+            The highest MIDI note to be appeared on the piano roll 
+            Default: 108, which is equivalent to the highest note, C8, on a piano
+            
+        min_midi: int
+            The lowest MIDI note to be appeared on the piano roll 
+            Default: 21, which is equivalent to the lowest note, A0, on a piano  
+            
+            
+        ext_audio: str
+            The audio format to load. Most dataset provides audio in the format of `.wav` files.
+            The `.resample(sr)` function resamples audio into `.flac` format.
+            Therefore, changing the target audio format to be load can be used to control
+            which set of audio data to use
+            Default: '.wav'            
         """
         
         self.overlap = overlap
-        super().__init__()
+        super().__init__(**kwargs)
         
         self.url = "https://amubox.univ-amu.fr/s/iNG0xc5Td1Nv4rR/download"
         self.checksum = '02a8f140dc9a7c85639b0c01e5522add'
@@ -306,20 +359,11 @@ class MAPS(AMTDataset):
         self.ext_archive = '.tar'
         self.name_archive = 'MAPS'
         self.data_type = data_type
-        self.ext_audio = ext_audio
-        self.use_cache = use_cache
-        self.preload=preload
-        
-        self.sequence_length = sequence_length
-        self.random = np.random.RandomState(seed)
-        self.hop_length = hop_length
-        self.max_midi = max_midi
-        self.min_midi = min_midi
              
         groups = groups if isinstance(groups, list) else self.available_groups(groups)
         self.groups = groups
 
-        if download:
+        if self.download:
             if os.path.isdir(os.path.join(self.root, self.name_archive)):
                 print(f'Dataset folder exists, skipping download...\n'
                       f'Checking sub-folders...')
@@ -359,17 +403,17 @@ class MAPS(AMTDataset):
         self._walker = []
     
         for group in groups:
-            wav_paths = glob(os.path.join(self.root, self.name_archive, group, data_type, f'*{ext_audio}'))
+            wav_paths = glob(os.path.join(self.root, self.name_archive, group, data_type, f'*{self.ext_audio}'))
             self._walker.extend(wav_paths)
             
-        if preload:
+        if self.preload:
             self._preloader = []
             for i in tqdm(range(len(self._walker)),desc=f'Pre-loading data to RAM'):
                 self._preloader.append(self.load(i))
          
         print(f'{len(self._walker)} audio files found')
-        if use_cache:
-            print(f'{use_cache=}: it will use existing cache files (.pt) and ignore other changes '
+        if self.use_cache:
+            print(f'{self.use_cache=}: it will use existing cache files (.pt) and ignore other changes '
                   f'such as ext_audio, max_midi, min_midi, and hop_length.\n'
                   f'Please use .clear_cache() to remove existing .pt files to refresh caches')
 
@@ -443,6 +487,13 @@ class MusicNet(AMTDataset):
                  split='train',
                  refresh=False,
                  download=False,
+                 preload=False,
+                 use_cache=True,                 
+                 sequence_length=None,
+                 seed=42,
+                 hop_length=512,
+                 max_midi=108,
+                 min_midi=21,
                  ext_audio='.wav'):
         """
         root (str): The folder that contains the MusicNet dataset folder
@@ -462,6 +513,8 @@ class MusicNet(AMTDataset):
         self.split = split
         self.ext_audio = ext_audio
         self.refresh = refresh
+        self.preload = preload
+        self.use_cache = use_cache
              
         groups = groups if isinstance(groups, list) else self.available_groups(groups)
         self.groups = groups
@@ -492,8 +545,13 @@ class MusicNet(AMTDataset):
         
         else:
             if os.path.isdir(os.path.join(root, self.name_archive)):
-                print(f'MAPS folder found, checking content integrity...')
-                self.extract_subfolders(groups)   
+                print(f'{self.name_archive} folder found')
+            elif os.path.isfile(os.path.join(self.root, self.name_archive+self.ext_archive)):
+                print(f'{self.name_archive} folder not found, but {self.name_archive+self.ext_archive} exists')
+                print(f'Extracting {self.name_archive+self.ext_archive}')
+                extract_archive(os.path.join(self.root, self.name_archive+self.ext_archive))
+#                 self.extract_subfolders(groups)
+                self.csv2tsv()                
             else:
                 raise ValueError(f'{root} does not contain the MAPS folder, '
                                  f'please specify the correct path or download it by setting `download=True`')  
