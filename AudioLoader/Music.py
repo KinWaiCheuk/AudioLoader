@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 from abc import abstractmethod
 from glob import glob
 import csv
@@ -127,11 +128,12 @@ def files(file_list, ext='.mid', output_dir=False):
         
 
 
-class PianoRollAudioDataset(Dataset):
+class AMTDataset(Dataset):
     def __init__(self):
         pass
-        
-    def __getitem__(self, index):
+    
+    
+    def load(self, index):
         """
         load an audio track and the corresponding labels
         Returns
@@ -147,10 +149,11 @@ class PianoRollAudioDataset(Dataset):
             velocity: torch.ByteTensor, shape = [num_steps, midi_bins]
                 a matrix that contains MIDI velocity values at the frame locations
         """
+        
         audio_path = self._walker[index]
         tsv_path = audio_path.replace(self.ext_audio, '.tsv')
         saved_data_path = audio_path.replace(self.ext_audio, '.pt')
-        if os.path.exists(audio_path.replace(self.ext_audio, '.pt')) and self.refresh==False: 
+        if os.path.exists(audio_path.replace(self.ext_audio, '.pt')) and self.use_cache==True: 
             # Check if .pt files exist, if so just load the files
             return torch.load(saved_data_path)
         # Otherwise, create the .pt files
@@ -159,115 +162,131 @@ class PianoRollAudioDataset(Dataset):
             waveform = waveform.mean(0) # converting a stereo track into a mono track
         audio_length = len(waveform)
 
-#         n_keys = MAX_MIDI - MIN_MIDI + 1
-#         n_steps = (audio_length - 1) // HOP_LENGTH + 1 # This will affect the labels time steps
-
-#         label = torch.zeros(n_steps, n_keys, dtype=torch.uint8)
-#         velocity = torch.zeros(n_steps, n_keys, dtype=torch.uint8)
-
         tsv = np.loadtxt(tsv_path, delimiter='\t', skiprows=1)
 
-#         for onset, offset, note, vel in midi:
-#             left = int(round(onset * SAMPLE_RATE / HOP_LENGTH)) # Convert time to time step
-#             onset_right = min(n_steps, left + HOPS_IN_ONSET) # Ensure the time step of onset would not exceed the last time step
-#             frame_right = int(round(offset * SAMPLE_RATE / HOP_LENGTH))
-#             frame_right = min(n_steps, frame_right) # Ensure the time step of frame would not exceed the last time step
-#             offset_right = min(n_steps, frame_right + HOPS_IN_OFFSET)
+        pianoroll, velocity_roll = tsv2roll(tsv, audio_length, sr, 512, max_midi=108, min_midi=21)
+        data = dict(path=audio_path,
+                    sr=sr,
+                    audio=waveform,
+                    tsv=tsv,
+                    pianoroll=pianoroll,
+                    velocity_roll=velocity_roll)
+        if self.use_cache: # Only save new cache data in .pt format when use_cache==True
+            torch.save(data, saved_data_path)
+        return data      
+    
+    
+    def __getitem__(self, index):
+        if self.preload:
+            data = self._preloader[index]
+            result = self.get_segment(data, self.hop_length, self.sequence_length)
+            result['sr'] = data['sr']
+            return result            
+        else:
+            data = self.load(index)
+            result = self.get_segment(data, self.hop_length, self.sequence_length)
+            result['sr'] = data['sr']
+            return result    
+    
+    
+    def get_segment(self, data, hop_size, sequence_length=None, max_midi=108, min_midi=21):
+        result = dict(path=data['path'])
+        audio_length = len(data['audio'])
+        pianoroll = data['pianoroll']
+        velocity_roll = data['velocity_roll']
+    #     start = time.time()
+    #     pianoroll, velocity_roll = tsv2roll(data['tsv'], audio_length, data['sr'], hop_size, max_midi, min_midi)
+    #     print(f'tsv2roll time used = {time.time()-start}')
 
-#             f = int(note) - MIN_MIDI
-#             assert f>0, f"Found midi note number {int(note)}, while MIN_MIDI={MIN_MIDI}. Please change your MIN_MIDI."
-#             label[left:onset_right, f] = 3
-#             label[onset_right:frame_right, f] = 2
-#             label[frame_right:offset_right, f] = 1
-#             velocity[left:frame_right, f] = vel
+        if sequence_length is not None:
+            # slicing audio
+            begin = self.random.randint(audio_length - sequence_length)
+    #         begin = 1000 # for debugging
+            end = begin + sequence_length
+            result['audio'] = data['audio'][begin:end]
 
-#         data = dict(path=audio_path, audio=audio, label=label, velocity=velocity)\
-        data = dict(path=audio_path, sr=sr, audio=waveform, tsv=tsv)
-        torch.save(data, saved_data_path)
-        return data        
+            # slicing pianoroll
+            step_begin = begin // hop_size
+            n_steps = sequence_length // hop_size
+            step_end = step_begin + n_steps
+            labels = pianoroll[step_begin:step_end, :]
+            result['velocity'] = velocity_roll[step_begin:step_end, :]
+        else:
+            result['audio'] = data['audio']
+            labels = pianoroll
+            result['velocity'] = velocity_roll
+
+    #     result['audio'] = result['audio'].float().div_(32768.0) # converting to float by dividing it by 2^15
+        result['onset'] = (labels == 3).float()
+        result['offset'] = (labels == 1).float()
+        result['frame'] = (labels > 1).float()
+        result['velocity'] = result['velocity'].float().div_(128.0) # not yet normalized
+        # print(f"result['audio'].shape = {result['audio'].shape}")
+        # print(f"result['label'].shape = {result['label'].shape}")
+        return result            
+
+    def resample(self, sr, output_format='flac'):
+        """
+        ```python
+        dataset.resample(sr, output_format='flac')
+        dataset = MAPS('./Folder', groups='all', ext_audio='.flac')
+        ```
+        
+        Resample audio clips to the target sample rate `sr` and the target format `output_format`.
+        This method requires `pydub`.
+        After resampling, you need to create another instance of `MAPS` in order to load the new
+        audio files instead of the original `.wav` files.
+        """
+        
+        from pydub import AudioSegment        
+        def _resample(wavfile, sr, output_format):
+            sound = AudioSegment.from_wav(wavfile)
+            sound = sound.set_frame_rate(sr) # downsample it to sr
+            sound = sound.set_channels(1) # Convert Stereo to Mono
+            sound.export(wavfile[:-3] + output_format, format=output_format)            
+            
+        Parallel(n_jobs=multiprocessing.cpu_count())\
+        (delayed(_resample)(wavfile, sr, output_format)\
+         for wavfile in tqdm(self._walker,
+                             desc=f'Resampling to {sr}Hz .{output_format} files'))
+        
+    def clear_caches(self):
+        """"Clearing existing .pt files"""
+        cache_list = list(Path(os.path.join(self.root, self.name_archive)).rglob('*.pt'))
+        decision = input(f"Found {len(cache_list)} .pt files"
+                         f"Do you want to remove them?"
+                         f"Choosing [no] if you want to double check the list of files to be removed when [yes/no]")
+        
+        if decision.lower()=='yes':
+            for file in cache_list:
+                os.remove(file)
+        elif decision.lower()=='no':
+            return cache_list
+        else:
+            print(f"[{decision}] is not a supported answer. Clearing skipped.")
+            return cache_list            
 
     def __len__(self):
-        return len(self.data)
-
-#     @classmethod # This one seems optional?
-#     @abstractmethod # This is to make sure other subclasses also contain this method
-#     def available_groups(cls):
-#         """return the names of all available groups"""
-#         raise NotImplementedError
-
-#     @abstractmethod
-#     def files(self, group):
-#         """return the list of input files (audio_filename, tsv_filename) for this group"""
-#         raise NotImplementedError
-
-#     def load(self, audio_path, tsv_path):
-#         """
-#         load an audio track and the corresponding labels
-#         Returns
-#         -------
-#             A dictionary containing the following data:
-#             path: str
-#                 the path to the audio file
-#             audio: torch.ShortTensor, shape = [num_samples]
-#                 the raw waveform
-#             label: torch.ByteTensor, shape = [num_steps, midi_bins]
-#                 a matrix that contains the onset/offset/frame labels encoded as:
-#                 3 = onset, 2 = frames after onset, 1 = offset, 0 = all else
-#             velocity: torch.ByteTensor, shape = [num_steps, midi_bins]
-#                 a matrix that contains MIDI velocity values at the frame locations
-#         """
-#         saved_data_path = audio_path.replace('.flac', '.pt').replace('.wav', '.pt')
-#         if os.path.exists(saved_data_path) and self.refresh==False: # Check if .pt files exist, if so just load the files
-#             return torch.load(saved_data_path)
-#         # Otherwise, create the .pt files
-#         audio, sr = soundfile.read(audio_path, dtype='int16')
-#         assert sr == SAMPLE_RATE
-
-#         audio = torch.ShortTensor(audio) # convert numpy array to pytorch tensor
-#         audio_length = len(audio)
-
-#         n_keys = MAX_MIDI - MIN_MIDI + 1
-#         n_steps = (audio_length - 1) // HOP_LENGTH + 1 # This will affect the labels time steps
-
-#         label = torch.zeros(n_steps, n_keys, dtype=torch.uint8)
-#         velocity = torch.zeros(n_steps, n_keys, dtype=torch.uint8)
-
-#         tsv_path = tsv_path
-#         midi = np.loadtxt(tsv_path, delimiter='\t', skiprows=1)
-
-#         for onset, offset, note, vel in midi:
-#             left = int(round(onset * SAMPLE_RATE / HOP_LENGTH)) # Convert time to time step
-#             onset_right = min(n_steps, left + HOPS_IN_ONSET) # Ensure the time step of onset would not exceed the last time step
-#             frame_right = int(round(offset * SAMPLE_RATE / HOP_LENGTH))
-#             frame_right = min(n_steps, frame_right) # Ensure the time step of frame would not exceed the last time step
-#             offset_right = min(n_steps, frame_right + HOPS_IN_OFFSET)
-
-#             f = int(note) - MIN_MIDI
-#             label[left:onset_right, f] = 3
-#             label[onset_right:frame_right, f] = 2
-#             label[frame_right:offset_right, f] = 1
-#             velocity[left:frame_right, f] = vel
-
-#         data = dict(path=audio_path, audio=audio, label=label, velocity=velocity)
-#         torch.save(data, saved_data_path)
-#         return data
+        return len(self._walker)
     
     
-class MAPS(Dataset):
+class MAPS(AMTDataset):
     def __init__(self,
                  root='./',
                  groups='all',
                  data_type='MUS',
                  overlap=True,
-                 refresh=False,
+                 use_cache=True,
                  download=False,
                  preload=False,
                  sequence_length=None,
                  seed=42,
-                 HOP_LENGTH=512,
-                 
+                 hop_length=512,
+                 max_midi=108,
+                 min_midi=21,
                  ext_audio='.wav'):
         """
+        This Dataset inherits from AMTDataset.
         root (str): The folder that contains the MAPS dataset folder
         groups (list or str): Choose which sub-folders to load. Avaliable choices are 
                               `train`, `test`, `all`. Default is `all`, which means loading
@@ -288,12 +307,14 @@ class MAPS(Dataset):
         self.name_archive = 'MAPS'
         self.data_type = data_type
         self.ext_audio = ext_audio
-        self.refresh = refresh
+        self.use_cache = use_cache
         self.preload=preload
         
         self.sequence_length = sequence_length
         self.random = np.random.RandomState(seed)
-        self.HOP_LENGTH = HOP_LENGTH
+        self.hop_length = hop_length
+        self.max_midi = max_midi
+        self.min_midi = min_midi
              
         groups = groups if isinstance(groups, list) else self.available_groups(groups)
         self.groups = groups
@@ -331,7 +352,7 @@ class MAPS(Dataset):
                 self.extract_subfolders(groups)   
             else:
                 raise ValueError(f'{root} does not contain the MAPS folder, '
-                                 f'please specify the correct path or download it by setting `download=True`')  
+                                 f'please specify the correct path or download it by setting `download=True`')
                 
 #         print(f"Loading {len(groups)} group{'s' if len(groups) > 1 else ''} "
 #               f"of {self.__class__.__name__} at {os.path.join(self.root, self.name_archive)}")
@@ -347,6 +368,10 @@ class MAPS(Dataset):
                 self._preloader.append(self.load(i))
          
         print(f'{len(self._walker)} audio files found')
+        if use_cache:
+            print(f'{use_cache=}: it will use existing cache files (.pt) and ignore other changes '
+                  f'such as ext_audio, max_midi, min_midi, and hop_length.\n'
+                  f'Please use .clear_cache() to remove existing .pt files to refresh caches')
 
     def extract_subfolders(self, groups):
         for group in groups:
@@ -389,171 +414,7 @@ class MAPS(Dataset):
         elif group=='all':
             return ['AkPnBcht', 'AkPnBsdf', 'AkPnCGdD', 'AkPnStgb', 'ENSTDkAm', 'ENSTDkCl', 'SptkBGAm', 'SptkBGCl', 'StbgTGd2']
         
-        
-    def load(self, index):
-        """
-        load an audio track and the corresponding labels
-        Returns
-        -------
-            A dictionary containing the following data:
-            path: str
-                the path to the audio file
-            audio: torch.ShortTensor, shape = [num_samples]
-                the raw waveform
-            label: torch.ByteTensor, shape = [num_steps, midi_bins]
-                a matrix that contains the onset/offset/frame labels encoded as:
-                3 = onset, 2 = frames after onset, 1 = offset, 0 = all else
-            velocity: torch.ByteTensor, shape = [num_steps, midi_bins]
-                a matrix that contains MIDI velocity values at the frame locations
-        """
-        
-        audio_path = self._walker[index]
-        tsv_path = audio_path.replace(self.ext_audio, '.tsv')
-        saved_data_path = audio_path.replace(self.ext_audio, '.pt')
-        if os.path.exists(audio_path.replace(self.ext_audio, '.pt')) and self.refresh==False: 
-            # Check if .pt files exist, if so just load the files
-            return torch.load(saved_data_path)
-        # Otherwise, create the .pt files
-        waveform, sr = torchaudio.load(audio_path)
-        if waveform.dim()==2:
-            waveform = waveform.mean(0) # converting a stereo track into a mono track
-        audio_length = len(waveform)
 
-#         n_keys = MAX_MIDI - MIN_MIDI + 1
-#         n_steps = (audio_length - 1) // HOP_LENGTH + 1 # This will affect the labels time steps
-
-#         label = torch.zeros(n_steps, n_keys, dtype=torch.uint8)
-#         velocity = torch.zeros(n_steps, n_keys, dtype=torch.uint8)
-
-        tsv = np.loadtxt(tsv_path, delimiter='\t', skiprows=1)
-
-#         for onset, offset, note, vel in midi:
-#             left = int(round(onset * SAMPLE_RATE / HOP_LENGTH)) # Convert time to time step
-#             onset_right = min(n_steps, left + HOPS_IN_ONSET) # Ensure the time step of onset would not exceed the last time step
-#             frame_right = int(round(offset * SAMPLE_RATE / HOP_LENGTH))
-#             frame_right = min(n_steps, frame_right) # Ensure the time step of frame would not exceed the last time step
-#             offset_right = min(n_steps, frame_right + HOPS_IN_OFFSET)
-
-#             f = int(note) - MIN_MIDI
-#             assert f>0, f"Found midi note number {int(note)}, while MIN_MIDI={MIN_MIDI}. Please change your MIN_MIDI."
-#             label[left:onset_right, f] = 3
-#             label[onset_right:frame_right, f] = 2
-#             label[frame_right:offset_right, f] = 1
-#             velocity[left:frame_right, f] = vel
-        pianoroll, velocity_roll = tsv2roll(tsv, audio_length, sr, 512, max_midi=108, min_midi=21)
-#         data = dict(path=audio_path, audio=audio, label=label, velocity=velocity)\
-        data = dict(path=audio_path,
-                    sr=sr,
-                    audio=waveform,
-                    tsv=tsv,
-                    pianoroll=pianoroll,
-                    velocity_roll=velocity_roll)
-        torch.save(data, saved_data_path)
-        return data      
-
-    def get_segment(self, data, hop_size, sequence_length=None, max_midi=108, min_midi=21):
-        result = dict(path=data['path'])
-        audio_length = len(data['audio'])
-        pianoroll = data['pianoroll']
-        velocity_roll = data['velocity_roll']
-    #     start = time.time()
-    #     pianoroll, velocity_roll = tsv2roll(data['tsv'], audio_length, data['sr'], hop_size, max_midi, min_midi)
-    #     print(f'tsv2roll time used = {time.time()-start}')
-
-        if sequence_length is not None:
-            # slicing audio
-            begin = self.random.randint(audio_length - sequence_length)
-    #         begin = 1000 # for debugging
-            end = begin + sequence_length
-            result['audio'] = data['audio'][begin:end]
-
-            # slicing pianoroll
-            step_begin = begin // hop_size
-            n_steps = sequence_length // hop_size
-            step_end = step_begin + n_steps
-            labels = pianoroll[step_begin:step_end, :]
-            result['velocity'] = velocity_roll[step_begin:step_end, :]
-        else:
-            result['audio'] = data['audio']
-            labels = pianoroll
-            result['velocity'] = velocity_roll
-
-    #     result['audio'] = result['audio'].float().div_(32768.0) # converting to float by dividing it by 2^15
-        result['onset'] = (labels == 3).float()
-        result['offset'] = (labels == 1).float()
-        result['frame'] = (labels > 1).float()
-        result['velocity'] = result['velocity'].float().div_(128.0) # not yet normalized
-        # print(f"result['audio'].shape = {result['audio'].shape}")
-        # print(f"result['label'].shape = {result['label'].shape}")
-        return result        
-
-    
-    def __getitem__(self, index):
-        if self.preload:
-            data = self._preloader[index]
-            result = self.get_segment(data, self.HOP_LENGTH, self.sequence_length)
-            result['sr'] = data['sr']
-            return result            
-        else:
-            data = self.load(index)
-            result = self.get_segment(data, self.HOP_LENGTH, self.sequence_length)
-            result['sr'] = data['sr']
-            return result
-
-#     def files(self, group, music_type):
-#         return 
-        
-#         flacs = glob(os.path.join(self.path, 'flac', '*_%s.flac' % group))
-#         if self.overlap==False:
-#             with open('overlapping.pkl', 'rb') as f:
-#                 test_names = pickle.load(f)
-#             filtered_flacs = []    
-#             for i in flacs:
-#                 if any([substring in i for substring in test_names]):
-#                     pass
-#                 else:
-#                     filtered_flacs.append(i)
-#             flacs = filtered_flacs 
-#         # tsvs = [f.replace('/flac/', '/tsv/matched/').replace('.flac', '.tsv') for f in flacs]
-#         tsvs = [f.replace('/flac/', '/tsvs/').replace('.flac', '.tsv') for f in flacs]
-#         assert(all(os.path.isfile(flac) for flac in flacs))
-#         assert(all(os.path.isfile(tsv) for tsv in tsvs))
-        
-#         print(f'len(flacs) = {len(flacs)}')
-#         print(f'tsvs = {len(tsvs)}')
-
-#         return sorted(zip(flacs, tsvs))    
-
-    def __len__(self):
-        return len(self._walker)
-    
-    
-    def resample(self, sr, output_format='flac'):
-        """
-        ```python
-        dataset.resample(sr, output_format='flac')
-        dataset = MAPS('./Folder', groups='all', ext_audio='.flac')
-        ```
-        
-        Resample audio clips to the target sample rate `sr` and the target format `output_format`.
-        This method requires `pydub`.
-        After resampling, you need to create another instance of `MAPS` in order to load the new
-        audio files instead of the original `.wav` files.
-        """
-        
-        from pydub import AudioSegment        
-        def _resample(wavfile, sr, output_format):
-            sound = AudioSegment.from_wav(wavfile)
-            sound = sound.set_frame_rate(sr) # downsample it to sr
-            sound = sound.set_channels(1) # Convert Stereo to Mono
-            sound.export(wavfile[:-3] + output_format, format=output_format)            
-            
-        Parallel(n_jobs=multiprocessing.cpu_count())\
-        (delayed(_resample)(wavfile, sr, output_format)\
-         for wavfile in tqdm(self._walker,
-                             desc=f'Resampling to {sr}Hz .{output_format} files'))
-
-    
     def clear_audio(self, audio_format='.flac'):
         clear_list = []
         for group in self.groups:
@@ -575,7 +436,7 @@ class MAPS(Dataset):
                 
                 
                 
-class MusicNet(PianoRollAudioDataset):
+class MusicNet(AMTDataset):
     def __init__(self,
                  root='./',
                  groups='all',
