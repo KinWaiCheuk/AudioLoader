@@ -131,7 +131,7 @@ def files(file_list, ext='.mid', output_dir=False):
 class AMTDataset(Dataset):
     def __init__(self,
                  use_cache=True,
-                 download=False,
+                 download=True,
                  preload=False,
                  sequence_length=None,
                  seed=42,
@@ -317,6 +317,21 @@ class MAPS(AMTDataset):
             TODO: To control if overlapping songs in the train set to be load.
             Default: False, which means that it will ignore audio clips in the train set
                      which already exist in the test set ('ENSTDkAm' and 'ENSTDkCl')
+                     
+        use_cache: bool
+            If it is set to `True`, the audio, piano roll and its metadata would be saved as a .pt file.
+            Loading directly from the .pt files would be slightly faster than loading raw audio and tsv files
+            Default:True
+            
+        download: bool
+            To automatically download the dataset if it is set to `True`
+            Default: True
+            
+        preload: bool
+            When it is set to `True`, the data will be loaded into RAM, which makes loading faster.
+            For large dataset, RAM memory might not be enough to store all the data, and we can
+            use `preload=False` to read data on the fly.
+            Default: False
 
         sequence_length: int
             The length of audio segment to be extracted.
@@ -485,16 +500,7 @@ class MusicNet(AMTDataset):
                  root='./',
                  groups='all',
                  split='train',
-                 refresh=False,
-                 download=False,
-                 preload=False,
-                 use_cache=True,                 
-                 sequence_length=None,
-                 seed=42,
-                 hop_length=512,
-                 max_midi=108,
-                 min_midi=21,
-                 ext_audio='.wav'):
+                 **kwargs):
         """
         root (str): The folder that contains the MusicNet dataset folder
         groups (list or str): Choose which sub-folders to load. Avaliable choices are 
@@ -503,44 +509,38 @@ class MusicNet(AMTDataset):
                                subfolders to be loaded.                
         """
         
-        super().__init__()
+        super().__init__(**kwargs)
         
         self.url = "https://homes.cs.washington.edu/~thickstn/media/musicnet.tar.gz"
         self.checksum = 'd41d8cd98f00b204e9800998ecf8427e'
         self.root = root
         self.ext_archive = '.tar.gz'
         self.name_archive = 'musicnet'
-        self.split = split
-        self.ext_audio = ext_audio
-        self.refresh = refresh
-        self.preload = preload
-        self.use_cache = use_cache
              
         groups = groups if isinstance(groups, list) else self.available_groups(groups)
         self.groups = groups
 
-        if download:
+        if self.download:
             if os.path.isdir(os.path.join(self.root, self.name_archive)):
-                print(f'Dataset folder exists, skipping download...\n'
-                      f'Checking sub-folders...')
-#                 self.extract_subfolders(groups)
+                print(f'{self.name_archive} folder exists, skipping download')
+                print(f'Converting csv files into tsv files')
                 self.csv2tsv()
             elif os.path.isfile(os.path.join(self.root, self.name_archive+self.ext_archive)):
-                print(f'.tar file exists, skipping download...')
-                print(f'Extracting MAPS.tar')
+                print(f'{self.name_archive+self.ext_archive} exists, skipping download')
+                print(f'Extracting {self.name_archive+self.ext_archive}')
                 extract_archive(os.path.join(self.root, self.name_archive+self.ext_archive))
-#                 self.extract_subfolders(groups)
+                print(f'Converting csv files into tsv files')
                 self.csv2tsv()                
             else:
                 if not os.path.isdir(self.root):
                     print(f'Creating download path = {self.root}')
                     os.makedirs(os.path.join(self.root))
                     
-                print(f'Downloading from {self.url}...')
+                print(f'Downloading from {self.url}')
                 download_url(self.url, root, hash_value=self.checksum, hash_type='md5')
                 print(f'Extracting musicnet.tar.gz')
                 extract_archive(os.path.join(self.root, self.name_archive+self.ext_archive))
-#                 self.extract_subfolders(groups)
+                print(f'Converting csv files into tsv files')
                 self.csv2tsv()
         
         else:
@@ -550,7 +550,7 @@ class MusicNet(AMTDataset):
                 print(f'{self.name_archive} folder not found, but {self.name_archive+self.ext_archive} exists')
                 print(f'Extracting {self.name_archive+self.ext_archive}')
                 extract_archive(os.path.join(self.root, self.name_archive+self.ext_archive))
-#                 self.extract_subfolders(groups)
+                print(f'Converting csv files into tsv files')
                 self.csv2tsv()                
             else:
                 raise ValueError(f'{root} does not contain the MAPS folder, '
@@ -560,98 +560,44 @@ class MusicNet(AMTDataset):
 #               f"of {self.__class__.__name__} at {os.path.join(self.root, self.name_archive)}")
         self._walker = []
         for group in groups:
-            wav_paths = glob(os.path.join(self.root, self.name_archive, f'{split}_data', f'*{ext_audio}'))
+            wav_paths = glob(os.path.join(self.root, self.name_archive, f'{group}_data', f'*{self.ext_audio}'))
             self._walker.extend(wav_paths)
                 
         print(f'{len(self._walker)} audio files found')
  
-#         def __getitem__(self, index):
-#         """
-#         load an audio track and the corresponding labels
-#         Returns
-#         -------
-#             A dictionary containing the following data:
-#             path: str
-#                 the path to the audio file
-#             audio: torch.ShortTensor, shape = [num_samples]
-#                 the raw waveform
-#             label: torch.ByteTensor, shape = [num_steps, midi_bins]
-#                 a matrix that contains the onset/offset/frame labels encoded as:
-#                 3 = onset, 2 = frames after onset, 1 = offset, 0 = all else
-#             velocity: torch.ByteTensor, shape = [num_steps, midi_bins]
-#                 a matrix that contains MIDI velocity values at the frame locations
-#         """
-#         audio_path = self._walker[index]
-#         tsv_path = audio_path.replace(self.ext_audio, '.tsv')
-#         saved_data_path = audio_path.replace(self.ext_audio, '.pt')
-#         if os.path.exists(audio_path.replace(self.ext_audio, '.pt')) and self.refresh==False: 
-#             # Check if .pt files exist, if so just load the files
-#             return torch.load(saved_data_path)
-#         # Otherwise, create the .pt files
-#         waveform, sr = torchaudio.load(audio_path)
-#         if waveform.dim()==2:
-#             waveform = waveform.mean(0) # converting a stereo track into a mono track
-#         audio_length = len(waveform)
-
-# #         n_keys = MAX_MIDI - MIN_MIDI + 1
-# #         n_steps = (audio_length - 1) // HOP_LENGTH + 1 # This will affect the labels time steps
-
-# #         label = torch.zeros(n_steps, n_keys, dtype=torch.uint8)
-# #         velocity = torch.zeros(n_steps, n_keys, dtype=torch.uint8)
-
-#         tsv = np.loadtxt(tsv_path, delimiter='\t', skiprows=1)
-
-# #         for onset, offset, note, vel in midi:
-# #             left = int(round(onset * SAMPLE_RATE / HOP_LENGTH)) # Convert time to time step
-# #             onset_right = min(n_steps, left + HOPS_IN_ONSET) # Ensure the time step of onset would not exceed the last time step
-# #             frame_right = int(round(offset * SAMPLE_RATE / HOP_LENGTH))
-# #             frame_right = min(n_steps, frame_right) # Ensure the time step of frame would not exceed the last time step
-# #             offset_right = min(n_steps, frame_right + HOPS_IN_OFFSET)
-
-# #             f = int(note) - MIN_MIDI
-# #             assert f>0, f"Found midi note number {int(note)}, while MIN_MIDI={MIN_MIDI}. Please change your MIN_MIDI."
-# #             label[left:onset_right, f] = 3
-# #             label[onset_right:frame_right, f] = 2
-# #             label[frame_right:offset_right, f] = 1
-# #             velocity[left:frame_right, f] = vel
-
-# #         data = dict(path=audio_path, audio=audio, label=label, velocity=velocity)\
-#         data = dict(path=audio_path, sr=sr, audio=waveform, tsv=tsv)
-#         torch.save(data, saved_data_path)
-#         return data              
                     
     def csv2tsv(self):
         """
         Convert csv files into tsv files for easy loading.
         """
-        
-        tsvs = glob(os.path.join(self.root, self.name_archive, f"{self.split}_labels", '*.tsv'))
-        num_tsvs = len(tsvs)
-        if num_tsvs>0:
-            decision = input(f"There are already {num_tsvs} tsv files.\n"+
-                             f"Do you want to overwrite them? [yes/no]")
-        elif num_tsvs==0:
-            decision='yes'
-            
-        if decision.lower()=='yes':
-            csvs = glob(os.path.join(self.root, self.name_archive, f'{self.split}_labels','*.csv')) # loading lists of csvs
-            Parallel(n_jobs=multiprocessing.cpu_count())\
-                    (delayed(process_csv)(in_file, out_file) for in_file, out_file in files(csvs, output_dir=False))
-        
-        # moving all tsv files to the data folder where wav files are located
-        # This is to make sure we can use the same __get_item__ fuction
-        tsvs = glob(os.path.join(self.root, self.name_archive, f"{self.split}_labels", '*.tsv'))
-        for tsv in tsvs:
-            target_path = tsv.replace(f"{self.split}_labels", f"{self.split}_data")
-            shutil.move(tsv, target_path)
+        for group in self.groups:
+            tsvs = glob(os.path.join(self.root, self.name_archive, f"{group}_labels", '*.tsv'))
+            num_tsvs = len(tsvs)
+            if num_tsvs>0:
+                decision = input(f"There are already {num_tsvs} tsv files.\n"+
+                                 f"Do you want to overwrite them? [yes/no]")
+            elif num_tsvs==0:
+                decision='yes'
+
+            if decision.lower()=='yes':
+                csvs = glob(os.path.join(self.root, self.name_archive, f'{group}_labels','*.csv')) # loading lists of csvs
+                Parallel(n_jobs=multiprocessing.cpu_count())\
+                        (delayed(process_csv)(in_file, out_file) for in_file, out_file in files(csvs, output_dir=False))
+
+            # moving all tsv files to the data folder where wav files are located
+            # This is to make sure we can use the same __get_item__ fuction
+            tsvs = glob(os.path.join(self.root, self.name_archive, f"{group}_labels", '*.tsv'))
+            for tsv in tsvs:
+                target_path = tsv.replace(f"{group}_labels", f"{group}_data")
+                shutil.move(tsv, target_path)
                 
     def available_groups(self, group):
         if group=='train':
-            return ['AkPnBcht', 'AkPnBsdf', 'AkPnCGdD', 'AkPnStgb', 'SptkBGAm', 'SptkBGCl', 'StbgTGd2']
+            return ['train']
         elif group=='test':
-            return ['ENSTDkAm', 'ENSTDkCl']
+            return ['test']
         elif group=='all':
-            return ['AkPnBcht', 'AkPnBsdf', 'AkPnCGdD', 'AkPnStgb', 'ENSTDkAm', 'ENSTDkCl', 'SptkBGAm', 'SptkBGCl', 'StbgTGd2']
+            return ['train', 'test']
         
         
 
