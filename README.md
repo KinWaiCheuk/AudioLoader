@@ -4,10 +4,11 @@ This will be a collection of PyTorch audio datasets that are not available in th
 **Currently supported datasets:**
 1. [Multilingual LibriSpeech (MLS) ](#multilingual-librispeech)
 1. [MAPS](#maps)
+1. [MusicNet](#MusicNet)
 
 **TODO:**
 1. MASETRO
-1. MusicNet
+1. TIMIT
 
 ## Installation
 `pip install git+https://github.com/KinWaiCheuk/AudioLoader.git`
@@ -22,6 +23,7 @@ This is a custom PyTorch Dataset for Multilingual LibriSpeech (MLS).
 To use this dataset for the first time, set `download=True`. 
 
 ```python
+from AudioLoader import MultilingualLibriSpeech
 dataset = MultilingualLibriSpeech('../Speech', 'mls_polish', 'train', download=True)
 ```
 
@@ -69,36 +71,60 @@ It splits the single text label `.txt` file into smaller per chapter `.txt` file
 To use this dataset for the first time, set `download=True`. 
 
 ```python
-dataset = MAPS('./Folder', groups='all', download=True)
+from AudioLoader.Music import MAPS
+dataset = MAPS(root='./',
+               groups='all',
+               data_type='MUS',
+               overlap=True,
+               use_cache=True,
+               download=True,
+               preload=False,
+               sequence_length=None,
+               seed=42,
+               hop_length=512,
+               max_midi=108,
+               min_midi=21,
+               ext_audio='.wav')
 ```
 
 This will download, unzip, and extract the `.tsv` labels.
 
+If `use_cache=True`, the output dictionary containing `(path, audio, velocity, onset, offset, frame, sr)` will be saved as a `.pt` file. Loading from `.pt` files is slightly faster.
+
+If `preload=True`, the whole dataset will be loaded into RAM, which allows a faster data accessing for each iteration. If the dataset is too large to be loaded in RAM, you can set `preload=False`
+
+If `sequence_length=None`, it will load the full audio track, otherwise, the output will be automatically crop to `sequence_length`. If `hop_length` is set to be same as the one used in spectrogram extraction, the piano rolls returned by this dataset will be aligned with the spectrogram. 
+
+`groups` controls which folders in MAPS to be loaded. `groups='all'` loads all folders; `groups='train'` loads the train set; `groups=test` loads the test set. Alternatively, you can also pass a list of the folder name `['AkPnBcht', 'AkPnBsdf', 'AkPnCGdD']` to load the folders you want.
+
+`ext_audio`: If you have resampled your audio into `flac` format, you can use this to control which set of audio to load.
+
 `dataset[i]` returns a dictionary containing:
 
 ```python
-{'path': '../MusicDataset/MAPS/AkPnBcht/MUS/MAPS_MUS-hay_40_1_AkPnBcht.wav',
- 'sr': 44100,
- 'audio': tensor([[0., 0., 0.,  ..., 0., 0., 0.],
-         [0., 0., 0.,  ..., 0., 0., 0.]]),
- 'midi': array([[  2.078941,   2.414137,  67.      ,  52.      ],
-        [  2.078941,   2.414137,  59.      ,  43.      ],
-        [  2.078941,   2.414137,  55.      ,  43.      ],
-        ...,
-        [394.169767, 394.867987,  59.      ,  56.      ],
-        [394.189763, 394.867987,  62.      ,  56.      ],
-        [394.209759, 394.867987,  67.      ,  62.      ]])}
+{'path': './MusicDataset/MAPS/AkPnBcht/MUS/MAPS_MUS-alb_se3_AkPnBcht.wav',
+ 'audio': tensor([-0.0123, -0.0132, -0.0136,  ...,  0.0002, -0.0026, -0.0051]),
+ 'velocity': tensor([[...]]),
+ 'onset': tensor([[...]]),
+ 'offset': tensor([[...]]),
+ 'frame': tensor([[...]]),
+ 'sr': 44100}
 ```
 
+`frame`: piano rolls of the shape `[T,K]`, where `T` is the number of timesteps, `K` is the number of midi notes. 
+
+`onset`: onset locations in piano roll form `[T, K]`.
+
+`offset`: offset locations in piano roll form `[T, K]`.
+
+`sr`: sampling rate of the audio clip
 Each row of `midi` represents a midi note, and it contains the information: `[start_time, end_time, Midi_pitch, velocity]`.
 
-The original audio clips are all steoro, users might want to convert them back to mono tracks first. Alternatively, the `.resample()` method can be also used to resample and convert tracks back to mono.
+The original audio clips are all steoro, this PyTorch dataset automatically convert them back to mono tracks. Alternatively, the `.resample()` method can be also used to resample and convert tracks back to mono.
 
 ### Getting a batch of audio segment
-To generate a batch of audio segments and piano rolls, `collect_batch(x, hop_size, sequence_length)` should be used as the `collate_fn` of PyTorch DataLoader. The `hop_size` for `collect_batch` should be same as the spectrogram hop_size, so that the piano roll obtained aligns with the spectrogram.
-
 ```python
-loader = DataLoader(dataset, batch_size=4, collate_fn=lambda x: collect_batch(x, hop_size, sequence_length))
+loader = DataLoader(dataset, batch_size=4)
 for batch in loader:
     audios = batch['audio'].to(device)
     frames = batch['frame'].to(device)
@@ -108,11 +134,13 @@ for batch in loader:
 
 1. #### resample
 ```python
-dataset.resample(sr, output_format='flac')
+dataset.resample(sr, output_format='flac', num_threads=-1)
 dataset = MAPS('./Folder', groups='all', ext_audio='.flac')
 ```
 Resample audio clips to the target sample rate `sr` and the target format `output_format`. This method requires `pydub`. After resampling, you need to create another instance of `MAPS` in order to load the new audio files instead of the original `.wav` files.
 
+`num_threads` sets the number of threads to use when resampling audio clips. The default value `-1` is to use all available threads. If corrupted audio clips were produced when using `num_threads>0`, set `num_threads=0` to completely disable multithreading.
+ 
 
 2. #### extract_tsv
 ```python
@@ -120,10 +148,66 @@ dataset.extract_tsv()
 ```
 Convert midi files into tsv files for easy loading.
 
+3. ### clear_caches
+```python
+dataset.clear_caches()
+```
+Removing existing caches files.
 
 
-## TODO
-1. MusicNet
-1. MAESTRO
+## MusicNet
+### Introduction
+[MusicNet](https://homes.cs.washington.edu/~thickstn/musicnet.html)
+dataset contains 330 classical music recordings, such as
+string quartet, horn piano trio, and solo flute.
+The train set consists of 320 recordings, and the test set contains the remaining 10 recodings.
+### Usage
+To use this dataset for the first time, set `download=True`. 
+
+```python
+from AudioLoader.Music import MusicNet
+musicnet_dataset = MusicNet('./',
+                            groups='all',
+                            ext_audio='.flac',
+                            use_cache=False,
+                            download=False
+                            preload=True,
+                            sequence_length=sequence_length,
+                            seed=42,
+                            hop_length=512,
+                            max_midi=108,
+                            min_midi=21,
+                            ext_audio='.wav'
+                           )
+```
+
+This will download, unzip, and convert the `.csv` files into `.tsv` files.
+
+All arugments are same as the [MAPS](#maps) dataset, you may want to check the avaliable arugments [here](#maps).
+
+`dataset[i]` returns a dictionary containing:
+
+```python
+{'path': './MusicDataset/musicnet/train_data/1788.wav',
+ 'audio': tensor([ 0.0179,  0.0264,  0.0230,  ..., -0.1169, -0.0786, -0.0732]),
+ 'velocity': tensor([[...]]),
+ 'onset': tensor([[...]]),
+ 'offset': tensor([[...]]),
+ 'frame': tensor([[...]]),
+ 'sr': 44100}
+```
+
+
+### Getting a batch of audio segment
+```python
+loader = DataLoader(dataset, batch_size=4)
+for batch in loader:
+    audios = batch['audio'].to(device)
+    frames = batch['frame'].to(device)
+```
+
+### Other functionalities
+
+Same as [MAPS](#maps)
 
 
