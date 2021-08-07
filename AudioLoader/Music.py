@@ -243,12 +243,13 @@ class AMTDataset(Dataset):
         # print(f"result['label'].shape = {result['label'].shape}")
         return result            
 
-    def resample(self, sr, output_format='flac'):
+    def resample(self, sr, output_format='flac', num_threads=-1):
         """
         ```python
-        dataset.resample(sr, output_format='flac')
         dataset = MAPS('./Folder', groups='all', ext_audio='.flac')
+        dataset.resample(sr, output_format='flac', num_threads=4)
         ```
+        It is known that sometimes num_threads>0 (using multiprocessing) might cause corrupted audio after resampling
         
         Resample audio clips to the target sample rate `sr` and the target format `output_format`.
         This method requires `pydub`.
@@ -263,10 +264,19 @@ class AMTDataset(Dataset):
             sound = sound.set_channels(1) # Convert Stereo to Mono
             sound.export(wavfile[:-3] + output_format, format=output_format)            
             
-        Parallel(n_jobs=multiprocessing.cpu_count())\
-        (delayed(_resample)(wavfile, sr, output_format)\
-         for wavfile in tqdm(self._walker,
-                             desc=f'Resampling to {sr}Hz .{output_format} files'))
+        if num_threads==-1:    
+            Parallel(n_jobs=multiprocessing.cpu_count())\
+            (delayed(_resample)(wavfile, sr, output_format)\
+             for wavfile in tqdm(self._walker,
+                                 desc=f'Resampling to {sr}Hz .{output_format} files'))            
+        elif num_threads==0:
+            for wavfile in tqdm(self._walker, desc=f'Resampling to {sr}Hz .{output_format} files'):
+                _resample(wavfile, sr, output_format)
+        else:
+            Parallel(n_jobs=num_threads)\
+            (delayed(_resample)(wavfile, sr, output_format)\
+             for wavfile in tqdm(self._walker,
+                                 desc=f'Resampling to {sr}Hz .{output_format} files'))
         
     def clear_caches(self):
         """"Clearing existing .pt files"""
@@ -562,6 +572,11 @@ class MusicNet(AMTDataset):
         for group in groups:
             wav_paths = glob(os.path.join(self.root, self.name_archive, f'{group}_data', f'*{self.ext_audio}'))
             self._walker.extend(wav_paths)
+            
+        if self.preload:
+            self._preloader = []
+            for i in tqdm(range(len(self._walker)),desc=f'Pre-loading data to RAM'):
+                self._preloader.append(self.load(i))            
                 
         print(f'{len(self._walker)} audio files found')
  
