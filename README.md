@@ -1,21 +1,21 @@
 # AudioLoader
-This will be a collection of PyTorch audio datasets that are not available in the official PyTorch dataset and torchaudio dataset yet. I am building various one-click-ready audio datasets for my research, and I hope it will also benefit other people. 
+This will be a collection of PyTorch audio dataset loaders that are not available in the official PyTorch dataset and torchaudio dataset yet. I am building various one-click-ready audio datasets for my research, and I hope it will also benefit other people. 
 
 **Currently supported datasets:**
 1. [Multilingual LibriSpeech (MLS) ](#multilingual-librispeech)
+1. [TIMIT](#The-DARPA-TIMIT-Acoustic-Phonetic-Continuous-Speech-Corpus)
 1. [MAPS](#maps)
 1. [MusicNet](#MusicNet)
 
 **TODO:**
 1. MASETRO
-1. TIMIT
 
 ## Installation
 `pip install git+https://github.com/KinWaiCheuk/AudioLoader.git`
 
 ## Multilingual LibriSpeech
 ### Introduction
-This is a custom PyTorch Dataset for Multilingual LibriSpeech (MLS).
+This is a custom PyTorch Dataset Loader for Multilingual LibriSpeech (MLS).
 
 [Multilingual LibriSpeech (MLS)](http://www.openslr.org/94/) contains 8 languages. This ready-to-use PyTorch `Dataset` allows users to set up this dataset by just calling the `MultilingualLibriSpeech` class. The original dataset put all utterance labels into a single `.txt` file. For larger languages such as English, it causes a slow label loading. This custom `Dataset` class automatically splits the labels into smaller sizes.
 
@@ -23,11 +23,11 @@ This is a custom PyTorch Dataset for Multilingual LibriSpeech (MLS).
 To use this dataset for the first time, set `download=True`. 
 
 ```python
-from AudioLoader import MultilingualLibriSpeech
-dataset = MultilingualLibriSpeech('../Speech', 'mls_polish', 'train', download=True)
+from AudioLoader.Speech import MultilingualLibriSpeech
+dataset = MultilingualLibriSpeech('./YourFolder', 'mls_polish', 'train', download=True)
 ```
 
-This will download, unzip, and split the labels. To download `opus` version of the dataset, simply add the suffix `_opus`. e.g. `mls_polish_opus`.
+This will download, unzip, and split the labels inside `YourFolder`. To download `opus` version of the dataset, simply add the suffix `_opus`. e.g. `mls_polish_opus`.
 
 `dataset[i]` returns a dictionary containing:
 
@@ -62,6 +62,38 @@ It splits the single text label `.txt` file into smaller per chapter `.txt` file
 `num_threads`: Default `0`. Determine how many threads are used to split the labels. Useful for larger dataset like English.
 
 `IPA`: Default `False`. Set to `True` to extract IPA labels. Useful for phoneme recognition. Requires [phomenizer](https://github.com/bootphon/phonemizer) and [espeak](https://github.com/espeak-ng/espeak-ng).
+
+## The DARPA TIMIT Acoustic-Phonetic Continuous Speech Corpus
+### Introduction
+This is a custom PyTorch Dataset Loader for [TIMIT](https://catalog.ldc.upenn.edu/LDC93S1). This dataset can be downloaded via this [github repository](https://github.com/philipperemy/timit).
+### Usage
+To use this dataset for the first time, set `download=True`. 
+
+```python
+from AudioLoader.Speech import TIMIT
+dataset = TIMIT('./YourFolder',
+                split='train',
+                groups='all',
+                download=True)
+```
+
+This will download, unzip, and split the labels inside `YourFolder`. You can control which dialect regions to load via the `groups` argument. `gourps='all'` loads all dialect regions; `groups=[1,5]` loads `DR1` and `DR5`.
+
+`dataset[i]` returns a dictionary containing:
+
+```python
+{'path': '../../SpeechDataset/TIMIT/data/TRAIN/DR1/MTJS0/SX292.WAV.wav',
+ 'waveform': tensor([[ 7.0190e-04, -1.8311e-04, -3.0518e-05,  ...,  6.1035e-05,
+           1.2207e-04, -3.0518e-04]]),
+ 'sample_rate': 16000,
+ 'DR': 'DR1',
+ 'gender': 'M',
+ 'speaker_id': 'TJS0',
+ 'phonemics': ['h#',...'z','h#'],
+ 'words': ['these',...,'all','times']}
+```
+
+
 
 ## MAPS
 ### Introduction
@@ -209,5 +241,7 @@ for batch in loader:
 ### Other functionalities
 
 Same as [MAPS](#maps)
+
+
 
 
