@@ -1,3 +1,1 @@
-__version__ = "0.0.1a"
-from .multilingual_librispeech import MultilingualLibriSpeech
-from .TIMIT import TIMIT
+__version__ = "0.0.1"
