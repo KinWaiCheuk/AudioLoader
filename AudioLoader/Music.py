@@ -182,7 +182,7 @@ class AMTDataset(Dataset):
 
         tsv = np.loadtxt(tsv_path, delimiter='\t', skiprows=1)
 
-        pianoroll, velocity_roll = tsv2roll(tsv, audio_length, sr, 512, max_midi=108, min_midi=21)
+        pianoroll, velocity_roll = tsv2roll(tsv, audio_length, sr, self.hop_length, max_midi=108, min_midi=21)
         data = dict(path=audio_path,
                     sr=sr,
                     audio=waveform,
@@ -226,6 +226,7 @@ class AMTDataset(Dataset):
             # slicing pianoroll
             step_begin = begin // hop_size
             n_steps = sequence_length // hop_size
+            
             step_end = step_begin + n_steps
             labels = pianoroll[step_begin:step_end, :]
             result['velocity'] = velocity_roll[step_begin:step_end, :]
