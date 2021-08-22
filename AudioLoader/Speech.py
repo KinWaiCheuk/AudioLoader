@@ -560,11 +560,11 @@ class TIMIT(Dataset):
         ext: either `'WRD` for word labels or `PHN` for phone labels
         """
         label_path = file_path.replace('WAV.wav', ext)
-        labels = []
+        labels = ''
         with open(label_path, 'r') as f:
             lines = f.read().splitlines()
             for i in lines:
-                labels.append(i.split(' ')[-1]) 
+                labels += f"{(i.split(' ')[-1])} "
                 
         return labels
     
