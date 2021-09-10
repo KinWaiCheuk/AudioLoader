@@ -13,6 +13,11 @@ This will be a collection of PyTorch audio dataset loaders that are not availabl
 ## Installation
 `pip install git+https://github.com/KinWaiCheuk/AudioLoader.git`
 
+## News & Changelog
+**version 0.0.3** (10 Sep 2021): 
+1. Replace broken links with a working links for `MAPS` and `TIMIT`
+1. Remove the slience indicators in the phonemic labels for TIMIT
+
 ## Multilingual LibriSpeech
 ### Introduction
 This is a custom PyTorch Dataset Loader for Multilingual LibriSpeech (MLS).
@@ -82,15 +87,15 @@ This will download, unzip, and split the labels inside `YourFolder`. You can con
 `dataset[i]` returns a dictionary containing:
 
 ```python
-{'path': '../../SpeechDataset/TIMIT/data/TRAIN/DR1/MTJS0/SX292.WAV.wav',
- 'waveform': tensor([[ 7.0190e-04, -1.8311e-04, -3.0518e-05,  ...,  6.1035e-05,
-           1.2207e-04, -3.0518e-04]]),
+{'path': 'TIMIT/data/TRAIN/DR1/FSMA0/SX361.WAV.wav',
+ 'waveform': tensor([[3.0518e-05, 1.5259e-04, 6.1035e-05,  ..., 1.5259e-04, 0.0000e+00,
+          2.1362e-04]]),
  'sample_rate': 16000,
  'DR': 'DR1',
- 'gender': 'M',
- 'speaker_id': 'TJS0',
- 'phonemics': ['h#',...'z','h#'],
- 'words': ['these',...,'all','times']}
+ 'gender': 'F',
+ 'speaker_id': 'SMA0',
+ 'phonemics': 'dh ix s pcl p iy tcl ch s ix m pcl p ow z y ix m ay q bcl b iy gcl g ih n m ah n dcl d ey ',
+ 'words': 'the speech symposium might begin monday '}
 ```
 
 
@@ -241,6 +246,8 @@ for batch in loader:
 ### Other functionalities
 
 Same as [MAPS](#maps)
+
+
 
 
 
