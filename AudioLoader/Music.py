@@ -18,6 +18,7 @@ import torch
 from torch.utils.data import Dataset
 import torchaudio
 from torchaudio.compliance import kaldi # for downsampling
+import hashlib
 from torchaudio.datasets.utils import (
     download_url,
     extract_archive,
@@ -39,7 +40,6 @@ def check_md5(path, md5_hash):
         md5_returned = hashlib.md5(data).hexdigest()
 
         assert md5_returned==md5_hash, f"{os.path.basename(path)} is corrupted, please download it again"
-        print(f'md5 checksum passed')
 
 # Helper functions for midi to tsv conversions
 def parse_csv(path):
@@ -218,6 +218,8 @@ class AMTDataset(Dataset):
 
         if sequence_length is not None:
             # slicing audio
+            assert (audio_length - sequence_length)>0, \
+            f"{sequence_length=} is longer than the {audio_length=}. Please reduce the sequence_length"
             begin = self.random.randint(audio_length - sequence_length)
     #         begin = 1000 # for debugging
             end = begin + sequence_length
@@ -379,42 +381,81 @@ class MAPS(AMTDataset):
         self.overlap = overlap
         super().__init__(**kwargs)
         
-        self.url = "https://amubox.univ-amu.fr/s/iNG0xc5Td1Nv4rR/download"
-        self.checksum = '02a8f140dc9a7c85639b0c01e5522add'
+#         self.url = "https://amubox.univ-amu.fr/s/iNG0xc5Td1Nv4rR/download"
+#         self.checksum = '02a8f140dc9a7c85639b0c01e5522add'
+
+        self.url_dict = {'AkPnBcht': 'https://amubox.univ-amu.fr/s/iNG0xc5Td1Nv4rR/download?path=%2F&files=AkPnBcht.zip&downloadStartSecret=2qjs7gi2ixw',
+                    'AkPnBsdf': 'https://amubox.univ-amu.fr/s/iNG0xc5Td1Nv4rR/download?path=%2F&files=AkPnBsdf.zip&downloadStartSecret=lqjko9sgjv',
+                    'AkPnCGdD': 'https://amubox.univ-amu.fr/s/iNG0xc5Td1Nv4rR/download?path=%2F&files=AkPnCGdD.zip&downloadStartSecret=sqfhv2kjb4d',
+                    'AkPnStgb': 'https://amubox.univ-amu.fr/s/iNG0xc5Td1Nv4rR/download?path=%2F&files=AkPnStgb.zip&downloadStartSecret=p50p2c8wjka',
+                    'ENSTDkAm1': 'https://amubox.univ-amu.fr/s/iNG0xc5Td1Nv4rR/download?path=%2F&files=ENSTDkAm1.zip&downloadStartSecret=4jd7mmoberd',
+                    'ENSTDkAm2': 'https://amubox.univ-amu.fr/s/iNG0xc5Td1Nv4rR/download?path=%2F&files=ENSTDkAm2.zip&downloadStartSecret=bfeekv6zios',
+                    'ENSTDkCl': 'https://amubox.univ-amu.fr/s/iNG0xc5Td1Nv4rR/download?path=%2F&files=ENSTDkCl.zip&downloadStartSecret=1ekyv85ij5wh',
+                    'SptkBGAm': 'https://amubox.univ-amu.fr/s/iNG0xc5Td1Nv4rR/download?path=%2F&files=SptkBGAm.zip&downloadStartSecret=lckjw1lgks',
+                    'SptkBGCl': 'https://amubox.univ-amu.fr/s/iNG0xc5Td1Nv4rR/download?path=%2F&files=SptkBGCl.zip&downloadStartSecret=cho91vy3swp',
+                    'StbgTGd2': 'https://amubox.univ-amu.fr/s/iNG0xc5Td1Nv4rR/download?path=%2F&files=StbgTGd2.zip&downloadStartSecret=htixu8ryz3h'
+                    }
+
+        self.hash_dict = {'AkPnBcht': '44f0b64a7cda143cfb25e217300df743',
+                     'AkPnBsdf': '3f26df7b2f104a3df3f27cd7b91c461a',
+                     'AkPnCGdD': 'c15622c304e72c0d6223ce9f7070036f',
+                     'AkPnStgb': '75bda66fb21b927338ae2c042333175d',
+                     'ENSTDkAm1': 'a47136282f92254722dd92aef70c6262',
+                     'ENSTDkAm2': '2d56f30b88e71010c66ab8c32cd7f582',
+                     'ENSTDkCl': 'd51e503d592136f3c400f832ecb767ce',
+                     'SptkBGAm': '6d37344417bebd2353aeeff2b7d8232f',
+                     'SptkBGCl': '37d91c67d96c6612b348f171244bfb2c',
+                     'StbgTGd2': '2e08fc13143a525d5b316f09ed38f9d4'
+                    }        
+        
         self.root = root
-        self.ext_archive = '.tar'
+#         self.ext_archive = '.tar'
+        self.ext_archive = '.zip'
         self.name_archive = 'MAPS'
         self.data_type = data_type
              
         groups = groups if isinstance(groups, list) else self.available_groups(groups)
         self.groups = groups
-
+        
+        
         if self.download:
-            if os.path.isdir(os.path.join(self.root, self.name_archive)):
-                print(f'Dataset folder exists, skipping download...\n'
-                      f'Checking sub-folders...')
+            # Check if MAPS folder exists
+            if not os.path.isdir(os.path.join(root, self.name_archive)):
+                os.makedirs(os.path.join(root, self.name_archive)) 
+
+            if self._check_all_groups_exist(groups): # If data folder does not exist, check if zip files exist
+                print(f'All zip files exist.')
                 self.extract_subfolders(groups)
-                self.extract_tsv()
-            elif os.path.isfile(os.path.join(self.root, self.name_archive+self.ext_archive)):
-                print(f'.tar file exists, skipping download...')
-                print(f'Extracting MAPS.tar')
-                extract_archive(os.path.join(self.root, self.name_archive+self.ext_archive))
-                self.extract_subfolders(groups)
-                self.extract_tsv()                
-            else:
-                if not os.path.isdir(self.root):
-                    print(f'Creating download path = {self.root}')
-                    os.makedirs(os.path.join(self.root))
+                self.extract_tsv()                   
+
+#         Downloading the complete zip file is broken at "https://amubox.univ-amu.fr/s/iNG0xc5Td1Nv4rR/download"
+#         if self.download:
+#             if os.path.isdir(os.path.join(self.root, self.name_archive)):
+#                 print(f'Dataset folder exists, skipping download...\n'
+#                       f'Checking sub-folders...')
+#                 self.extract_subfolders(groups)
+#                 self.extract_tsv()
+#             elif os.path.isfile(os.path.join(self.root, self.name_archive+self.ext_archive)):
+#                 print(f'.tar file exists, skipping download...')
+#                 print(f'Extracting MAPS.tar')
+#                 extract_archive(os.path.join(self.root, self.name_archive+self.ext_archive))
+#                 self.extract_subfolders(groups)
+#                 self.extract_tsv()                
+#             else:
+#                 if not os.path.isdir(self.root):
+#                     print(f'Creating download path = {self.root}')
+#                     os.makedirs(os.path.join(self.root))
                     
-                print(f'Downloading from {self.url}\n'
-                      f"If download won't start automatically, please visit "
-                      f"https://amubox.univ-amu.fr/index.php/s/iNG0xc5Td1Nv4rR "
-                      f"to download manually")
-                download_url(self.url, root, hash_value=self.checksum, hash_type='md5')
-                print(f'Extracting MAPS.tar')
-                extract_archive(os.path.join(self.root, self.name_archive+self.ext_archive))
-                self.extract_subfolders(groups)
-                self.extract_tsv()
+#                 print(f'Downloading from {self.url}\n'
+#                       f"If download won't start automatically, please visit "
+#                       f"https://amubox.univ-amu.fr/index.php/s/iNG0xc5Td1Nv4rR "
+#                       f"to download manually")
+#                 download_url(self.url, root, hash_value=self.checksum, hash_type='md5')
+#                 print(f'Extracting MAPS.tar')
+#                 extract_archive(os.path.join(self.root, self.name_archive+self.ext_archive))
+#                 self.extract_subfolders(groups)
+#                 self.extract_tsv()
+
         
         else:
             if os.path.isdir(os.path.join(root, self.name_archive)):
@@ -451,12 +492,41 @@ class MAPS(AMTDataset):
                 if group=='ENSTDkAm':
                     # ENSTDkAm consists of ENSTDkAm1.zip and ENSTDkAm2.zip
                     # Extract and merge both ENSTDkAm1.zip and ENSTDkAm2.zip as ENSTDkAm
+                    check_md5(os.path.join(self.root, self.name_archive, group+'1.zip'), self.hash_dict[group+'1'])
+                    check_md5(os.path.join(self.root, self.name_archive, group+'2.zip'), self.hash_dict[group+'2'])
                     extract_archive(os.path.join(self.root, self.name_archive, group+'1.zip'))
                     extract_archive(os.path.join(self.root, self.name_archive, group+'2.zip'))
                 else:
+                    check_md5(os.path.join(self.root, self.name_archive, group+'.zip'), self.hash_dict[group])
                     extract_archive(os.path.join(self.root, self.name_archive, group+'.zip'))
                 print(f' '*50, end='\r')
                 print(f'{group} extracted.')
+                
+    def _check_all_groups_exist(self, groups):
+        print("Checking if data folders already exist...")
+        for group in groups:
+            if os.path.isdir(os.path.join(self.root, self.name_archive, group)):
+                pass
+            else:
+                print(f"{group} not found, proceeding to check if the zip file exists", end='\r')
+                if group=='ENSTDkAm': # ENSTDkAm has 2 zip files ENSTDkAm1.zip and ENSTDkAm2.zip
+                    zip_list = ['ENSTDkAm1', 'ENSTDkAm2']
+                    for group in zip_list:
+                        self._check_and_download_zip(group)
+                else:
+                    self._check_and_download_zip(group)
+        return True
+
+    def _check_and_download_zip(self, group):
+        if os.path.isfile(os.path.join(self.root, self.name_archive, group+'.zip')):
+            print(f"{group+'.zip'} exists" + " "*100)
+            pass
+        else:
+            print(f"{group+'.zip'} not found, proceeding to download")
+            download_url(self.url_dict[group],
+                         os.path.join(self.root, self.name_archive),
+                         hash_value=self.hash_dict[group],
+                         hash_type='md5')           
                     
     def extract_tsv(self):
         """
