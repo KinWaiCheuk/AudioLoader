@@ -445,10 +445,9 @@ class TIMIT(Dataset):
             ``(default: ``"mls_german_opus"``).
             
         split (str):
-            Choose different dataset splits such as ``"train"``, ``"dev"``, and
-            ``"test"``. (default: ``"train"``)
+            Choose different dataset splits such as ``"train"``, or ``"test"``. (default: ``"train"``).
+            ``"dev"`` is not given in this dataset, you have to split part of the ``"train"`` into the ``"dev"`` set.
 
-        low_resource: bool = False,
         
         download (bool, optional):
             Whether to download the dataset if it is not found at root path. (default: ``False``).
@@ -478,6 +477,7 @@ class TIMIT(Dataset):
         folder_name = 'TIMIT'
         download_path = os.path.join(root, folder_name)
         self.download_path = download_path
+        assert split.upper()=="TRAIN" or split.upper()=="TEST", f"{split=} is not present in this dataset"
         self._path = os.path.join(root, folder_name, 'data', split.upper())
         
         self.groups = self.available_groups(groups)
