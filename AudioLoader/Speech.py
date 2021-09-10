@@ -581,6 +581,9 @@ class TIMIT(Dataset):
             lines = f.read().splitlines()
             for i in lines:
                 labels += f"{(i.split(' ')[-1])} "
+            if ext=='PHN':
+                # Remove the slience indicator h# at the beginning and the end
+                labels = labels.replace('h# ', '')
                 
         return labels
     
