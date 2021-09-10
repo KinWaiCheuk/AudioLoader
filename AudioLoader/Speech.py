@@ -17,7 +17,7 @@ from torchaudio.datasets.utils import (
     download_url,
     extract_archive,
 )
-
+import hashlib
 
 
 _CHECKSUMS = {"mls_english_opus": "60390221eec6f456611563b37f0b052c",
@@ -56,7 +56,14 @@ espeak_map = {"mls_english_opus": "en",
               "mls_portuguese": "pt-pt",
               "mls_polish":  "pl"}
     
+def check_md5(path, md5_hash):
+    with open(path, 'rb') as file_to_check:
+        # read contents of the file
+        data = file_to_check.read()    
+        # pipe contents of the file through
+        md5_returned = hashlib.md5(data).hexdigest()
 
+        assert md5_returned==md5_hash, f"{os.path.basename(path)} is corrupted, please download it again"
 
 class MultilingualLibriSpeech(Dataset):
     """Dataset class for Multilingual LibriSpeech (MLS) dataset.
@@ -463,10 +470,11 @@ class TIMIT(Dataset):
 
         self._ext_audio = ".wav" # The audio format in this dataset is .wav
         ext_archive = '.zip'
-        url = "https://www.kaggle.com/mfekadu/darpa-timit-acousticphonetic-continuous-speech/download"
+#         url = "https://www.kaggle.com/mfekadu/darpa-timit-acousticphonetic-continuous-speech/download"
+        url = 'https://data.deepai.org/timit.zip'
         
         # Getting audio path
-        archive_name = 'archive'
+        archive_name = 'timit'
         folder_name = 'TIMIT'
         download_path = os.path.join(root, folder_name)
         self.download_path = download_path
@@ -474,14 +482,21 @@ class TIMIT(Dataset):
         
         self.groups = self.available_groups(groups)
         
-        checksum = '8acbaea404859a04925b5bd32474d3ce'
+        checksum = '5b736303c55cf4970926bb9978b655fe'
         
         if download:
             if os.path.isdir(download_path) and os.path.isdir(os.path.join(download_path, 'data')):
                 print(f'Dataset folder exists, skipping download...')
                 decision = input(f"Do you want to extract {archive_name+ext_archive} again? "
                                  f"To avoid this prompt, set `download=False`\n"
-                                 f"This action will overwrite exsiting files, do you still want to continue? [yes/no]")                
+                                 f"This action will overwrite exsiting files, do you still want to continue? [yes/no]") 
+                if decision.lower()=='yes':
+                    print(f'extracting...')
+                    extract_archive(os.path.join(download_path, archive_name+ext_archive))                
+            elif os.path.isfile(os.path.join(download_path, 'timit.zip')):
+                print(f'timit.zip exists, extracting...')
+                check_md5(os.path.join(download_path, archive_name+ext_archive), checksum)
+                extract_archive(os.path.join(download_path, archive_name+ext_archive))
             else:
                 decision='yes'       
                 if not os.path.isdir(download_path):
@@ -501,14 +516,15 @@ class TIMIT(Dataset):
                                         'You may want to download it manually from:\n'+
                                         url+ '\n' +
                                         f'Then, put it inside {download_path}')
-                    
-            if decision.lower()=='yes':
-                print(f'extracting...')
-                extract_archive(os.path.join(download_path, archive_name+ext_archive))
 
         
         if os.path.isdir(self._path):
             pass
+        elif os.path.isfile(os.path.join(download_path, 'timit.zip')):
+            print(f'timit.zip exists, extracting...')
+            check_md5(os.path.join(download_path, archive_name+ext_archive), checksum)
+            extract_archive(os.path.join(download_path, archive_name+ext_archive))
+            
         else:
             raise FileNotFoundError(f"Dataset not found at {self._path}, please specify the correct location or set `download=True`")
                     
