@@ -477,7 +477,7 @@ class TIMIT(Dataset):
         folder_name = 'TIMIT'
         download_path = os.path.join(root, folder_name)
         self.download_path = download_path
-        assert split.upper()=="TRAIN" or split.upper()=="TEST", f"{split=} is not present in this dataset"
+        assert split.upper()=="TRAIN" or split.upper()=="TEST", f"split={split} is not present in this dataset"
         self._path = os.path.join(root, folder_name, 'data', split.upper())
         
         self.groups = self.available_groups(groups)

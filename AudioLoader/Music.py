@@ -219,7 +219,8 @@ class AMTDataset(Dataset):
         if sequence_length is not None:
             # slicing audio
             assert (audio_length - sequence_length)>0, \
-            f"{sequence_length=} is longer than the {audio_length=}. Please reduce the sequence_length"
+            f"sequence_length={sequence_length} is longer than the "
+            f"audio_length={audio_length}. Please reduce the sequence_length"
             begin = self.random.randint(audio_length - sequence_length)
     #         begin = 1000 # for debugging
             end = begin + sequence_length
@@ -480,7 +481,7 @@ class MAPS(AMTDataset):
          
         print(f'{len(self._walker)} audio files found')
         if self.use_cache:
-            print(f'{self.use_cache=}: it will use existing cache files (.pt) and ignore other changes '
+            print(f'use_cache={self.use_cache}: it will use existing cache files (.pt) and ignore other changes '
                   f'such as ext_audio, max_midi, min_midi, and hop_length.\n'
                   f'Please use .clear_cache() to remove existing .pt files to refresh caches')
 
