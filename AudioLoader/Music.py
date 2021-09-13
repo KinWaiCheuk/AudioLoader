@@ -427,6 +427,7 @@ class MAPS(AMTDataset):
             if self._check_all_groups_exist(groups): # If data folder does not exist, check if zip files exist
                 print(f'All zip files exist.')
                 self.extract_subfolders(groups)
+                # Downsampling audio to 16kHz flac formats
                 self.extract_tsv()                   
 
 #         Downloading the complete zip file is broken at "https://amubox.univ-amu.fr/s/iNG0xc5Td1Nv4rR/download"
@@ -478,6 +479,10 @@ class MAPS(AMTDataset):
             self._preloader = []
             for i in tqdm(range(len(self._walker)),desc=f'Pre-loading data to RAM'):
                 self._preloader.append(self.load(i))
+                
+        if self.download:
+            self.resample(16000, output_format='flac', num_threads=4)            
+            
          
         print(f'{len(self._walker)} audio files found')
         if self.use_cache:
@@ -501,7 +506,8 @@ class MAPS(AMTDataset):
                     check_md5(os.path.join(self.root, self.name_archive, group+'.zip'), self.hash_dict[group])
                     extract_archive(os.path.join(self.root, self.name_archive, group+'.zip'))
                 print(f' '*50, end='\r')
-                print(f'{group} extracted.')
+                print(f'{group} extracted.')        
+                
                 
     def _check_all_groups_exist(self, groups):
         print("Checking if data folders already exist...")
@@ -516,7 +522,6 @@ class MAPS(AMTDataset):
                         self._check_and_download_zip(group)
                 else:
                     self._check_and_download_zip(group)
-        return True
 
     def _check_and_download_zip(self, group):
         if os.path.isfile(os.path.join(self.root, self.name_archive, group+'.zip')):
@@ -644,6 +649,9 @@ class MusicNet(AMTDataset):
         for group in groups:
             wav_paths = glob(os.path.join(self.root, self.name_archive, f'{group}_data', f'*{self.ext_audio}'))
             self._walker.extend(wav_paths)
+            
+        if self.download:
+            self.resample(16000, output_format='flac', num_threads=4)              
             
         if self.preload:
             self._preloader = []
