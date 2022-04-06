@@ -260,7 +260,7 @@ Original SpeechCommands version 2 has total 35 single wordings. 10 out of 35 wor
 ### Usage
 To use this dataset for the first time, set `download=True`.
 
-```bash
+```python
 from AudioLoader.Speech import SPEECHCOMMANDS_12C
 dataset = SPEECHCOMMANDS_12C('./YourFolder','speech_commands_v0.02',
 'SpeechCommands',download=True ,subset= 'training')
@@ -269,7 +269,7 @@ dataset = SPEECHCOMMANDS_12C('./YourFolder','speech_commands_v0.02',
 This will download, unzip, and split the labels inside YourFolder. To download validation set or test set, simply change `subset` argument to `validation` or `testing` respectively
 
 `dataset[i]` returns a tuple containing:
-```
+```python
 (waveform, sample_rate, label, speaker_id, utterance_number)
 ```
 
