@@ -6,6 +6,7 @@ This will be a collection of PyTorch audio dataset loaders that are not availabl
 1. [TIMIT](#The-DARPA-TIMIT-Acoustic-Phonetic-Continuous-Speech-Corpus)
 1. [MAPS](#maps)
 1. [MusicNet](#MusicNet)
+1. [SpeechCommands_v2_12classes](#SpeechCommands_v2_12classes)
 
 **TODO:**
 1. MASETRO
@@ -247,7 +248,30 @@ for batch in loader:
 
 Same as [MAPS](#maps)
 
+## SpeechCommands_v2_12classes
+### Introduction
+This is a custom PyTorch Dataset Loader for SpeechCommands version 2 with 12 classes. 
 
+Original SpeechCommands version 2 has total 35 single wordings. 10 out of 35 words are chosen.
+* Class 1 to 10 (following the class order): `‘down’, ‘go’, ‘left’, ‘no’, ‘off’, ‘on’, ‘right’, ‘stop’, ‘up’, ‘yes’` 
+* Class 11: `class ‘unknown’`  represents the remaining 25 unchosen words.
+* Class 12: `class ‘silence’` represent no word can be detected which is created from background noise.
+
+### Usage
+To use this dataset for the first time, set `download=True`.
+
+```python
+from AudioLoader.Speech import SPEECHCOMMANDS_12C
+dataset = SPEECHCOMMANDS_12C('./YourFolder','speech_commands_v0.02',
+'SpeechCommands',download=True ,subset= 'training')
+```
+
+This will download, unzip, and split the labels inside YourFolder. To download validation set or test set, simply change `subset` argument to `validation` or `testing` respectively
+
+`dataset[i]` returns a tuple containing:
+```python
+(waveform, sample_rate, label, speaker_id, utterance_number)
+```
 
 
 
