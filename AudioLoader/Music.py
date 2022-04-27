@@ -699,9 +699,6 @@ class MusicNet(AMTDataset):
         elif group=='all':
             return ['train', 'test']
         
-        
-
-
 
 class FastMUSDB(Dataset):
     def __init__(self,
