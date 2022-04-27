@@ -836,7 +836,7 @@ class FastMUSDB(Dataset):
                     x = F.pad(x.unsqueeze(1),
                               (0, self.segment - x.shape[1])).squeeze(1)
 
-        y = np.stack(stems)
+        y = torch.stack(stems)
         if self.transform is not None:
             y = self.transform(y)
             x = y.sum(0)
