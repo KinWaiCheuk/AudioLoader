@@ -791,7 +791,7 @@ class FastMUSDB(Dataset):
     def _get_track_from_chunk(self, index):
         track_idx = np.digitize(index, self.cum_chunks)
         if track_idx > 0:
-            chunk_start = (index - self.cum_chunks[track_idx]) * self.segment
+            chunk_start = (index - self.cum_chunks[track_idx - 1]) * self.segment
         else:
             chunk_start = index * self.segment
         return self.tracks[track_idx], chunk_start
