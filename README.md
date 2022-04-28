@@ -7,6 +7,7 @@ This will be a collection of PyTorch audio dataset loaders that are not availabl
 1. [MAPS](#maps)
 1. [MusicNet](#MusicNet)
 1. [SpeechCommands_v2_12classes](#SpeechCommands_v2_12classes)
+1. [FastMUSDB](#FastMUSDB)
 
 **TODO:**
 1. MASETRO
@@ -247,6 +248,34 @@ for batch in loader:
 ### Other functionalities
 
 Same as [MAPS](#maps)
+
+
+## FastMUSDB
+### Introduction
+A faster version of [MUSDB](https://github.com/sigsep/sigsep-mus-db). The dataset can be downloaded [here](https://zenodo.org/record/3338373#.Ymjj5C0RpQI).
+### Usage
+```python
+from AudioLoader.Music import FastMUSDB
+dataset = MusicNet(
+                 root=None,
+                 subsets=['train', 'test'],
+                 split=None,
+                 seq_duration=6.0,
+                 samples_per_track=64,
+                 random=False,
+                 random_track_mix=False,
+                 transform: Optional[Callable] = None
+                 )
+```
+
+`dataset[i]` returns a tuple containing:
+
+```python
+(
+    mix tensor (2,44100*seq_duration),
+    source tensors (4,2,44100*seq_duration)
+)
+```
 
 ## SpeechCommands_v2_12classes
 ### Introduction
