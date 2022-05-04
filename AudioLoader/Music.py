@@ -742,7 +742,7 @@ class FastMUSDB(Dataset):
         elif self.random:
             self._size = len(self.tracks) * self.samples_per_track
         else:
-            chunks = [l // self.segment for l in self.track_lenghts]
+            chunks = [(-(-l // self.segment)) for l in self.track_lenghts]
             cum_chunks = np.cumsum(chunks)
             self.cum_chunks = cum_chunks
             self._size = cum_chunks[-1]
