@@ -251,6 +251,32 @@ for batch in loader:
 Same as [MAPS](#maps)
 
 
+## SpeechCommands_v2_12classes
+### Introduction
+This is a custom PyTorch Dataset Loader for SpeechCommands version 2 with 12 classes. 
+
+Original SpeechCommands version 2 has total 35 single wordings. 10 out of 35 words are chosen.
+* Class 1 to 10 (following the class order): `‘down’, ‘go’, ‘left’, ‘no’, ‘off’, ‘on’, ‘right’, ‘stop’, ‘up’, ‘yes’` 
+* Class 11: `class ‘unknown’`  represents the remaining 25 unchosen words.
+* Class 12: `class ‘silence’` represent no word can be detected which is created from background noise.
+
+### Usage
+To use this dataset for the first time, set `download=True`.
+
+```python
+from AudioLoader.Speech import SPEECHCOMMANDS_12C
+dataset = SPEECHCOMMANDS_12C('./YourFolder','speech_commands_v0.02',
+'SpeechCommands',download=True ,subset= 'training')
+```
+
+This will download, unzip, and split the labels inside YourFolder. To download validation set or test set, simply change `subset` argument to `validation` or `testing` respectively
+
+`dataset[i]` returns a tuple containing:
+```python
+(waveform, sample_rate, label, speaker_id, utterance_number)
+```
+
+
 ## FastMUSDB
 ### Introduction
 A faster version of [MUSDB](https://github.com/sigsep/sigsep-mus-db). The dataset can be downloaded [here](https://zenodo.org/record/3338373#.Ymjj5C0RpQI).
@@ -276,31 +302,6 @@ dataset = MusicNet(
     mix tensor (2,44100*seq_duration),
     source tensors (4,2,44100*seq_duration)
 )
-```
-
-## SpeechCommands_v2_12classes
-### Introduction
-This is a custom PyTorch Dataset Loader for SpeechCommands version 2 with 12 classes. 
-
-Original SpeechCommands version 2 has total 35 single wordings. 10 out of 35 words are chosen.
-* Class 1 to 10 (following the class order): `‘down’, ‘go’, ‘left’, ‘no’, ‘off’, ‘on’, ‘right’, ‘stop’, ‘up’, ‘yes’` 
-* Class 11: `class ‘unknown’`  represents the remaining 25 unchosen words.
-* Class 12: `class ‘silence’` represent no word can be detected which is created from background noise.
-
-### Usage
-To use this dataset for the first time, set `download=True`.
-
-```python
-from AudioLoader.Speech import SPEECHCOMMANDS_12C
-dataset = SPEECHCOMMANDS_12C('./YourFolder','speech_commands_v0.02',
-'SpeechCommands',download=True ,subset= 'training')
-```
-
-This will download, unzip, and split the labels inside YourFolder. To download validation set or test set, simply change `subset` argument to `validation` or `testing` respectively
-
-`dataset[i]` returns a tuple containing:
-```python
-(waveform, sample_rate, label, speaker_id, utterance_number)
 ```
 
 
