@@ -858,12 +858,12 @@ class MusdbHQ:
             self,root, subset,download = False,segment=None, shift=None, normalize=True,
             samplerate=44100, channels=2, ext=EXT):
         """
-        Waveset (or mp3 set for that matter). Can be used to train
+        MusdbHQ (or mp3 set for that matter). Can be used to train
         with arbitrary sources. Each track should be one folder inside of `path`.
         The folder should contain files named `{source}.{ext}`.
         Args:
             root (Path or str): root folder for the dataset.
-            subset (str): training or validation
+            subset (str): training ,validation, traininf_all or test
             download (bool): Whether to download the dataset if it is not found at root path. (default: ``False``).
             segment (None or float): segment length in seconds. If `None`, returns entire tracks.
             shift (None or float): stride in seconds bewteen samples.
@@ -1066,7 +1066,7 @@ def convert_audio_channels(wav, channels=2):
 
 def build_metadata(path, sources, normalize=True, ext=EXT):
     """
-    Build the metadata for `Wavset`.
+    Build the metadata for `MusdbHQ`.
     Args:
         path (str or Path): path to dataset.
         sources (list[str]): list of sources to look for.
@@ -1087,7 +1087,7 @@ def build_metadata(path, sources, normalize=True, ext=EXT):
             name = str(root.relative_to(path))
             pendings.append((name, pool.submit(_track_metadata, root, sources, normalize, ext)))
             # meta[name] = _track_metadata(root, sources, normalize, ext)
-        for name, pending in tqdm.tqdm(pendings, ncols=120):
+        for name, pending in tqdm(pendings, ncols=120):
             meta[name] = pending.result()
     return meta
 
@@ -1101,7 +1101,7 @@ def _track_metadata(track, sources, normalize=True, ext=EXT):
     for source in sources + [MIXTURE]:
         file = track / f"{source}{ext}"
         try:
-            info = torchaudiota.info(str(file))
+            info = torchaudio.info(str(file))
         except RuntimeError:
             print(file)
             raise
