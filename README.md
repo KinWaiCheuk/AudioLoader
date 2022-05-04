@@ -8,6 +8,7 @@ This will be a collection of PyTorch audio dataset loaders that are not availabl
 1. [MusicNet](#MusicNet)
 1. [SpeechCommands_v2_12classes](#SpeechCommands_v2_12classes)
 1. [FastMUSDB](#FastMUSDB)
+1. [MusdbHQ](#MusdbHQ)
 
 **TODO:**
 1. MASETRO
@@ -250,6 +251,32 @@ for batch in loader:
 Same as [MAPS](#maps)
 
 
+## SpeechCommands_v2_12classes
+### Introduction
+This is a custom PyTorch Dataset Loader for SpeechCommands version 2 with 12 classes. 
+
+Original SpeechCommands version 2 has total 35 single wordings. 10 out of 35 words are chosen.
+* Class 1 to 10 (following the class order): `‘down’, ‘go’, ‘left’, ‘no’, ‘off’, ‘on’, ‘right’, ‘stop’, ‘up’, ‘yes’` 
+* Class 11: `class ‘unknown’`  represents the remaining 25 unchosen words.
+* Class 12: `class ‘silence’` represent no word can be detected which is created from background noise.
+
+### Usage
+To use this dataset for the first time, set `download=True`.
+
+```python
+from AudioLoader.Speech import SPEECHCOMMANDS_12C
+dataset = SPEECHCOMMANDS_12C('./YourFolder','speech_commands_v0.02',
+'SpeechCommands',download=True ,subset= 'training')
+```
+
+This will download, unzip, and split the labels inside YourFolder. To download validation set or test set, simply change `subset` argument to `validation` or `testing` respectively
+
+`dataset[i]` returns a tuple containing:
+```python
+(waveform, sample_rate, label, speaker_id, utterance_number)
+```
+
+
 ## FastMUSDB
 ### Introduction
 A faster version of [MUSDB](https://github.com/sigsep/sigsep-mus-db). The dataset can be downloaded [here](https://zenodo.org/record/3338373#.Ymjj5C0RpQI).
@@ -277,31 +304,45 @@ dataset = MusicNet(
 )
 ```
 
-## SpeechCommands_v2_12classes
-### Introduction
-This is a custom PyTorch Dataset Loader for SpeechCommands version 2 with 12 classes. 
 
-Original SpeechCommands version 2 has total 35 single wordings. 10 out of 35 words are chosen.
-* Class 1 to 10 (following the class order): `‘down’, ‘go’, ‘left’, ‘no’, ‘off’, ‘on’, ‘right’, ‘stop’, ‘up’, ‘yes’` 
-* Class 11: `class ‘unknown’`  represents the remaining 25 unchosen words.
-* Class 12: `class ‘silence’` represent no word can be detected which is created from background noise.
+## MusdbHQ
+### Introduction
+This is a custom PyTorch Dataset Loader for MusdbHQ. This dataset can be downloaded [here](https://zenodo.org/record/3338373#.Ymjj5C0RpQI). MusdbHQ has total of 150 full-track songs. 
+After you download and unzip MusdbHQ, you will get a folder calls `train` which composed of 100 songs, another folder calls `test` which composed of 50 songs.
+
+Each song is saved as uncompressed wav files. Within each track folder, you can find the following sources: 
+* mixture.wav
+* drums.wav
+* bass.wav
+* other.wav
+* vocals.wav
 
 ### Usage
 To use this dataset for the first time, set `download=True`.
-
+ 
 ```python
-from AudioLoader.Speech import SPEECHCOMMANDS_12C
-dataset = SPEECHCOMMANDS_12C('./YourFolder','speech_commands_v0.02',
-'SpeechCommands',download=True ,subset= 'training')
+from AudioLoader.Music import MusdbHQ
+dataset = MusdbHQ(root, 
+                  subset= 'training', 
+                  download = True, 
+                  segment=None, 
+                  shift=None, 
+                  normalize=True,
+                  samplerate=44100, 
+                  channels=2, 
+                  ext=".wav")
 ```
 
-This will download, unzip, and split the labels inside YourFolder. To download validation set or test set, simply change `subset` argument to `validation` or `testing` respectively
+This will download and unzip MusdbHQ dataset.
+For the `subset` argument, you can choose from `'training_all'`, `'training'` , `'validation'`, `'test'`
 
-`dataset[i]` returns a tuple containing:
+* When the `subset` argument is `'training_all'`, you will get 100 songs from the train folder.
+* You can set the `subset` argument to `'training'` and get 86 songs from the train folder. Set the `subset` argument to `'validation'`, you will get 14 songs from the train folder for validation purpose.
+
+`segment` argument controls the segment length in seconds. If `None`, returns entire tracks.
+
+`dataset[i]` returns a tensor containing:
+ 
 ```python
-(waveform, sample_rate, label, speaker_id, utterance_number)
+(4, 2, 44100*segment)
 ```
-
-
-
-
