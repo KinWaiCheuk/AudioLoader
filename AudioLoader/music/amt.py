@@ -12,7 +12,7 @@ from typing import Optional, Callable
 from tqdm import tqdm
 import multiprocessing
 from joblib import Parallel, delayed
-from .utils import tsv2roll, check_md5
+from .utils import tsv2roll, check_md5, files, process_midi
 import torch
 from torch.utils.data import Dataset
 
