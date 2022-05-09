@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import time
 from tqdm import tqdm
+import hashlib
 
 def tsv2roll(tsv, audio_length, sample_rate, hop_size, max_midi, min_midi):
     """

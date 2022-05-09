@@ -12,12 +12,11 @@ from typing import Optional, Callable
 from tqdm import tqdm
 import multiprocessing
 from joblib import Parallel, delayed
-from .utils import tsv2roll
+from .utils import tsv2roll, check_md5
 import torch
 from torch.utils.data import Dataset
 
 import torchaudio
-import hashlib
 from torchaudio.datasets.utils import (
     download_url,
     extract_archive,
@@ -394,7 +393,7 @@ class MAPS(AMTDataset):
         if self.use_cache:
             print(f'use_cache={self.use_cache}: it will use existing cache files (.pt) and ignore other changes '
                   f'such as ext_audio, max_midi, min_midi, and hop_length.\n'
-                  f'Please use .clear_cache() to remove existing .pt files to refresh caches')
+                  f'Please use .clear_caches() to remove existing .pt files to refresh caches')
 
     def extract_subfolders(self, groups):
         for group in groups:
@@ -428,12 +427,14 @@ class MAPS(AMTDataset):
                         self._check_and_download_zip(group)
                 else:
                     self._check_and_download_zip(group)
+        return True
 
     def _check_and_download_zip(self, group):
         if os.path.isfile(os.path.join(self.root, self.name_archive, group+'.zip')):
             print(f"{group+'.zip'} exists" + " "*100)
             pass
         else:
+            print(" "*shutil.get_terminal_size().columns, end='\r')
             print(f"{group+'.zip'} not found, proceeding to download")
             download_url(self.url_dict[group],
                          os.path.join(self.root, self.name_archive),
