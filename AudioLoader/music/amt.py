@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 from glob import glob
-import csv
 import shutil
 import sys
 import pickle
@@ -12,7 +11,7 @@ from typing import Optional, Callable
 from tqdm import tqdm
 import multiprocessing
 from joblib import Parallel, delayed
-from .utils import tsv2roll, check_md5, files, process_midi
+from .utils import tsv2roll, check_md5, files, process_midi, process_csv
 import torch
 from torch.utils.data import Dataset
 import warnings
@@ -153,44 +152,6 @@ class AMTDataset(Dataset):
         # print(f"result['label'].shape = {result['label'].shape}")
         return result            
 
-    def resample(self, sr, output_format='flac', num_threads=-1):
-        """
-        ```python
-        dataset = MAPS('./Folder', groups='all', ext_audio='.flac')
-        dataset.resample(sr, output_format='flac', num_threads=4)
-        ```
-        It is known that sometimes num_threads>0 (using multiprocessing) might cause corrupted audio after resampling
-        
-        Resample audio clips to the target sample rate `sr` and the target format `output_format`.
-        This method requires `pydub`.
-        After resampling, you need to create another instance of `MAPS` in order to load the new
-        audio files instead of the original `.wav` files.
-        """
-        original_walker = []
-        for group in self.groups:
-            wav_paths = glob(os.path.join(self.root, self.name_archive, group, self.data_type, f'*{self.original_ext}'))
-            original_walker.extend(wav_paths)        
-        
-        from pydub import AudioSegment        
-        def _resample(wavfile, sr, output_format):
-            sound = AudioSegment.from_wav(wavfile.replace(self.ext_audio, self.original_ext))
-            sound = sound.set_frame_rate(sr) # downsample it to sr
-            sound = sound.set_channels(1) # Convert Stereo to Mono
-            sound.export(wavfile.replace(self.original_ext, f'.{output_format}'), format=output_format)            
-            
-        if num_threads==-1:    
-            Parallel(n_jobs=multiprocessing.cpu_count())\
-            (delayed(_resample)(wavfile, sr, output_format)\
-             for wavfile in tqdm(self._walker,
-                                 desc=f'Resampling to {sr}Hz .{output_format} files'))            
-        elif num_threads==0:
-            for wavfile in tqdm(original_walker, desc=f'Resampling to {sr}Hz .{output_format} files'):
-                _resample(wavfile, sr, output_format)
-        else:
-            Parallel(n_jobs=num_threads)\
-            (delayed(_resample)(wavfile, sr, output_format)\
-             for wavfile in tqdm(original_walker,
-                                 desc=f'Resampling to {sr}Hz .{output_format} files'))
             
     def downsample_exist(self, output_format='flac'):
         if len(self._walker) == 0:
@@ -529,6 +490,45 @@ class MAPS(AMTDataset):
                     os.remove(i)
             elif decision.lower()=='no':
                 print(f'aborting...')
+                
+    def resample(self, sr, output_format='flac', num_threads=-1):
+        """
+        ```python
+        dataset = MAPS('./Folder', groups='all', ext_audio='.flac')
+        dataset.resample(sr, output_format='flac', num_threads=4)
+        ```
+        It is known that sometimes num_threads>0 (using multiprocessing) might cause corrupted audio after resampling
+        
+        Resample audio clips to the target sample rate `sr` and the target format `output_format`.
+        This method requires `pydub`.
+        After resampling, you need to create another instance of `MAPS` in order to load the new
+        audio files instead of the original `.wav` files.
+        """
+        original_walker = []
+        for group in self.groups:
+            wav_paths = glob(os.path.join(self.root, self.name_archive, group, self.data_type, f'*{self.original_ext}'))
+            original_walker.extend(wav_paths)        
+        
+        from pydub import AudioSegment        
+        def _resample(wavfile, sr, output_format):
+            sound = AudioSegment.from_wav(wavfile.replace(self.ext_audio, self.original_ext))
+            sound = sound.set_frame_rate(sr) # downsample it to sr
+            sound = sound.set_channels(1) # Convert Stereo to Mono
+            sound.export(wavfile.replace(self.original_ext, f'.{output_format}'), format=output_format)            
+            
+        if num_threads==-1:    
+            Parallel(n_jobs=multiprocessing.cpu_count())\
+            (delayed(_resample)(wavfile, sr, output_format)\
+             for wavfile in tqdm(self._walker,
+                                 desc=f'Resampling to {sr}Hz .{output_format} files'))            
+        elif num_threads==0:
+            for wavfile in tqdm(original_walker, desc=f'Resampling to {sr}Hz .{output_format} files'):
+                _resample(wavfile, sr, output_format)
+        else:
+            Parallel(n_jobs=num_threads)\
+            (delayed(_resample)(wavfile, sr, output_format)\
+             for wavfile in tqdm(original_walker,
+                                 desc=f'Resampling to {sr}Hz .{output_format} files'))                
 
                 
 class MusicNet(AMTDataset):
@@ -554,6 +554,8 @@ class MusicNet(AMTDataset):
         self.root = root
         self.ext_archive = '.tar.gz'
         self.name_archive = 'musicnet'
+        self.original_ext = '.wav'
+        self.sampling_rate  = sampling_rate
              
         groups = groups if isinstance(groups, list) else self.available_groups(groups)
         self.groups = groups
@@ -601,8 +603,19 @@ class MusicNet(AMTDataset):
             wav_paths = glob(os.path.join(self.root, self.name_archive, f'{group}_data', f'*{self.ext_audio}'))
             self._walker.extend(wav_paths)
             
-        if self.download:
-            self.resample(16000, output_format='flac', num_threads=4)              
+                
+        if sampling_rate:
+            # When sampling rate is given, it will automatically create a downsampled copy
+            if self.downsample_exist('flac'):
+                print(f"downsampled audio exists, skipping downsampling")
+            else:
+                self.resample(sampling_rate, 'flac', num_threads=4)
+            
+            # reload the flac audio after downsampling only when _walker is empty
+            if len(self._walker) == 0:
+                for group in groups:
+                    wav_paths = glob(os.path.join(self.root, self.name_archive, f'{group}_data', f'*{self.ext_audio}'))
+                    self._walker.extend(wav_paths)            
             
         if self.preload:
             self._preloader = []
@@ -617,7 +630,7 @@ class MusicNet(AMTDataset):
         Convert csv files into tsv files for easy loading.
         """
         for group in self.groups:
-            tsvs = glob(os.path.join(self.root, self.name_archive, f"{group}_labels", '*.tsv'))
+            tsvs = glob(os.path.join(self.root, self.name_archive, f"{group}_data", '*.tsv'))            
             num_tsvs = len(tsvs)
             if num_tsvs>0:
                 decision = input(f"There are already {num_tsvs} tsv files.\n"+
@@ -643,4 +656,43 @@ class MusicNet(AMTDataset):
         elif group=='test':
             return ['test']
         elif group=='all':
-            return ['train', 'test']                
+            return ['train', 'test']
+        
+    def resample(self, sr, output_format='flac', num_threads=-1):
+        """
+        ```python
+        dataset = MAPS('./Folder', groups='all', ext_audio='.flac')
+        dataset.resample(sr, output_format='flac', num_threads=4)
+        ```
+        It is known that sometimes num_threads>0 (using multiprocessing) might cause corrupted audio after resampling
+        
+        Resample audio clips to the target sample rate `sr` and the target format `output_format`.
+        This method requires `pydub`.
+        After resampling, you need to create another instance of `MAPS` in order to load the new
+        audio files instead of the original `.wav` files.
+        """
+        original_walker = []
+        for group in self.groups:
+            wav_paths = glob(os.path.join(self.root, self.name_archive, f'{group}_data', f'*{self.original_ext}'))
+            original_walker.extend(wav_paths)        
+        
+        from pydub import AudioSegment        
+        def _resample(wavfile, sr, output_format):
+            sound = AudioSegment.from_wav(wavfile.replace(self.ext_audio, self.original_ext))
+            sound = sound.set_frame_rate(sr) # downsample it to sr
+            sound = sound.set_channels(1) # Convert Stereo to Mono
+            sound.export(wavfile.replace(self.original_ext, f'.{output_format}'), format=output_format)            
+            
+        if num_threads==-1:    
+            Parallel(n_jobs=multiprocessing.cpu_count())\
+            (delayed(_resample)(wavfile, sr, output_format)\
+             for wavfile in tqdm(self._walker,
+                                 desc=f'Resampling to {sr}Hz .{output_format} files'))            
+        elif num_threads==0:
+            for wavfile in tqdm(original_walker, desc=f'Resampling to {sr}Hz .{output_format} files'):
+                _resample(wavfile, sr, output_format)
+        else:
+            Parallel(n_jobs=num_threads)\
+            (delayed(_resample)(wavfile, sr, output_format)\
+             for wavfile in tqdm(original_walker,
+                                 desc=f'Resampling to {sr}Hz .{output_format} files'))        

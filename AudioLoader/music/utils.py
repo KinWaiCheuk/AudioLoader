@@ -4,6 +4,7 @@ import time
 from tqdm import tqdm
 import hashlib
 from mido import Message, MidiFile, MidiTrack
+import csv
 
 def tsv2roll(tsv, audio_length, sample_rate, hop_size, max_midi, min_midi):
     """
@@ -62,6 +63,7 @@ def parse_csv(path):
         next(csv_reader, None) # skipping the header
         notes = [] # container for storing tsv entries
         for row in csv_reader:
+            # It is fixed to 44100 because the original sr
             onset = int(row[0])/44100 # converting samples to second
             offset = int(row[1])/44100
             pitch = int(row[3])
