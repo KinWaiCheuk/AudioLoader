@@ -15,6 +15,7 @@ from joblib import Parallel, delayed
 from .utils import tsv2roll, check_md5, files, process_midi
 import torch
 from torch.utils.data import Dataset
+import warnings
 
 import torchaudio
 from torchaudio.datasets.utils import (
@@ -165,13 +166,17 @@ class AMTDataset(Dataset):
         After resampling, you need to create another instance of `MAPS` in order to load the new
         audio files instead of the original `.wav` files.
         """
+        original_walker = []
+        for group in self.groups:
+            wav_paths = glob(os.path.join(self.root, self.name_archive, group, self.data_type, f'*{self.original_ext}'))
+            original_walker.extend(wav_paths)        
         
         from pydub import AudioSegment        
         def _resample(wavfile, sr, output_format):
-            sound = AudioSegment.from_wav(wavfile)
+            sound = AudioSegment.from_wav(wavfile.replace(self.ext_audio, self.original_ext))
             sound = sound.set_frame_rate(sr) # downsample it to sr
             sound = sound.set_channels(1) # Convert Stereo to Mono
-            sound.export(wavfile[:-3] + output_format, format=output_format)            
+            sound.export(wavfile.replace(self.original_ext, f'.{output_format}'), format=output_format)            
             
         if num_threads==-1:    
             Parallel(n_jobs=multiprocessing.cpu_count())\
@@ -179,13 +184,37 @@ class AMTDataset(Dataset):
              for wavfile in tqdm(self._walker,
                                  desc=f'Resampling to {sr}Hz .{output_format} files'))            
         elif num_threads==0:
-            for wavfile in tqdm(self._walker, desc=f'Resampling to {sr}Hz .{output_format} files'):
+            for wavfile in tqdm(original_walker, desc=f'Resampling to {sr}Hz .{output_format} files'):
                 _resample(wavfile, sr, output_format)
         else:
             Parallel(n_jobs=num_threads)\
             (delayed(_resample)(wavfile, sr, output_format)\
-             for wavfile in tqdm(self._walker,
+             for wavfile in tqdm(original_walker,
                                  desc=f'Resampling to {sr}Hz .{output_format} files'))
+            
+    def downsample_exist(self, output_format='flac'):
+        if len(self._walker) == 0:
+            return 0
+        
+        for wavfile in tqdm(self._walker, desc=f'checking downsampled files'):
+            try:
+                dsampled_audio = wavfile.replace(self.ext_audio, f'.{output_format}')
+                assert os.path.isfile(dsampled_audio), f"{dsampled_audio} is missing"
+            except Exception as e:
+                warnings.warn(e.args[0])
+                return False
+            
+        # if downsampled audio exist, check if the sr is correct.
+        _, sr = torchaudio.load(dsampled_audio)               
+        try:
+            assert sr==self.sampling_rate, f'{dsampled_audio} is having a sampling rate of {sr} instead of {self.sampling_rate}'
+        except Exception as e:
+            warnings.warn(e.args[0])
+            return False
+        
+     
+        return True
+#             print()
         
     def clear_caches(self):
         """"Clearing existing .pt files"""
@@ -213,6 +242,7 @@ class MAPS(AMTDataset):
                  groups='all',
                  data_type='MUS',
                  overlap=True,
+                 sampling_rate=None,
                  **kwargs):
         """
         This Dataset inherits from AMTDataset.
@@ -318,7 +348,9 @@ class MAPS(AMTDataset):
 #         self.ext_archive = '.tar'
         self.ext_archive = '.zip'
         self.name_archive = 'MAPS'
+        self.original_ext = '.wav'        
         self.data_type = data_type
+        self.sampling_rate = sampling_rate
              
         groups = groups if isinstance(groups, list) else self.available_groups(groups)
         self.groups = groups
@@ -385,8 +417,19 @@ class MAPS(AMTDataset):
             for i in tqdm(range(len(self._walker)),desc=f'Pre-loading data to RAM'):
                 self._preloader.append(self.load(i))
                 
-        if self.download:
-            self.resample(16000, output_format='flac', num_threads=4)            
+        if sampling_rate:
+            # When sampling rate is given, it will automatically create a downsampled copy
+            if self.downsample_exist('flac'):
+                print(f"downsampled audio exists, skipping downsampling")
+            else:
+                self.resample(sampling_rate, 'flac', num_threads=4)
+            
+            # reload the flac audio after downsampling only when _walker is empty
+            if len(self._walker) == 0:
+                for group in groups:
+                    wav_paths = glob(os.path.join(self.root, self.name_archive, group, data_type, f'*{self.ext_audio}'))
+                    self._walker.extend(wav_paths)
+            
             
          
         print(f'{len(self._walker)} audio files found')
