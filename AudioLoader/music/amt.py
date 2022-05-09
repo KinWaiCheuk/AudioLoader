@@ -536,6 +536,7 @@ class MusicNet(AMTDataset):
                  root='./',
                  groups='all',
                  split='train',
+                 sampling_rate=None,
                  **kwargs):
         """
         root (str): The folder that contains the MusicNet dataset folder
@@ -547,7 +548,8 @@ class MusicNet(AMTDataset):
         
         super().__init__(**kwargs)
         
-        self.url = "https://homes.cs.washington.edu/~thickstn/media/musicnet.tar.gz"
+#         self.url = "https://homes.cs.washington.edu/~thickstn/media/musicnet.tar.gz" # old MusicNet link
+        self.url = "https://zenodo.org/record/5120004/files/musicnet.tar.gz?download=1"
         self.checksum = 'd41d8cd98f00b204e9800998ecf8427e'
         self.root = root
         self.ext_archive = '.tar.gz'
