@@ -21,7 +21,8 @@ dataset = MAPS(root='./',
                hop_length=512,
                max_midi=108,
                min_midi=21,
-               ext_audio='.wav')
+               ext_audio='.wav',
+               sampling_rate=None)
 ```
 
 This will download, unzip, and extract the `.tsv` labels.
@@ -35,6 +36,8 @@ If `sequence_length=None`, it will load the full audio track, otherwise, the out
 `groups` controls which folders in MAPS to be loaded. `groups='all'` loads all folders; `groups='train'` loads the train set; `groups=test` loads the test set. Alternatively, you can also pass a list of the folder name `['AkPnBcht', 'AkPnBsdf', 'AkPnCGdD']` to load the folders you want.
 
 `ext_audio`: If you have resampled your audio into `flac` format, you can use this to control which set of audio to load.
+
+`sampling_rate`: Set it to the number you want to downsample to. The downsampled audio clips are in `.flac` format, so you need to set `ext_audio='.flac'` to load them.
 
 `dataset[i]` returns a dictionary containing:
 
