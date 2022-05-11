@@ -28,7 +28,6 @@ from torchaudio.datasets.utils import (
 
 from collections import OrderedDict
 import math
-import julius
 
 metadata= './metadata'
 sources= ['drums', 'bass', 'other', 'vocals']
@@ -210,7 +209,7 @@ class MusdbHQ:
                 wavs.append(wav)
 
             example = torch.stack(wavs)
-            example = julius.resample_frac(example, meta['samplerate'], self.samplerate)
+            example = torchaudio.functional.resample(example, meta['samplerate'], self.samplerate)
             if self.normalize:
                 example = (example - meta['mean']) / meta['std']
             if self.segment:
