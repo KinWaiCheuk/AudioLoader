@@ -318,3 +318,11 @@ def _get_musdb_valid():
     setup = yaml.safe_load(open(setup_path, 'r'))
     return setup['validation_tracks']
 
+def check_md5(path, md5_hash):
+    with open(path, 'rb') as file_to_check:
+        # read contents of the file
+        data = file_to_check.read()    
+        # pipe contents of the file through
+        md5_returned = hashlib.md5(data).hexdigest()
+
+        assert md5_returned==md5_hash, f"{os.path.basename(path)} is corrupted, please download it again"
