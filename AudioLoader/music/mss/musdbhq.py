@@ -88,8 +88,9 @@ class MusdbHQ:
                     print(f'extracting...')
                     extract_archive(os.path.join(download_path, archive_name+ext_archive))                
             elif os.path.isfile(os.path.join(download_path, 'musdb18hq.zip')):
-                print(f'musdb18hq.zip exists, extracting...')
+                print(f'musdb18hq.zip exists, checking MD5...')
                 check_md5(os.path.join(download_path, archive_name+ext_archive), checksum)
+                print(f'MD5 is correct, extracting...')
                 extract_archive(os.path.join(download_path, archive_name+ext_archive))
             else:
                 decision='yes'       
@@ -113,8 +114,9 @@ class MusdbHQ:
         if os.path.isdir(self._path):
             pass
         elif os.path.isfile(os.path.join(download_path, 'musdb18hq.zip')):
-            print(f'musdb18hq.zip exists, extracting...')
+            print(f'musdb18hq.zip exists, checking MD5...')
             check_md5(os.path.join(download_path, archive_name+ext_archive), checksum)
+            print(f'MD5 is correct, extracting...')            
             extract_archive(os.path.join(download_path, archive_name+ext_archive))
             
         else:
@@ -317,12 +319,15 @@ def _get_musdb_valid():
     setup_path = Path(musdb.__path__[0]) / 'configs' / 'mus.yaml'
     setup = yaml.safe_load(open(setup_path, 'r'))
     return setup['validation_tracks']
-
+        
+        
 def check_md5(path, md5_hash):
-    with open(path, 'rb') as file_to_check:
-        # read contents of the file
-        data = file_to_check.read()    
-        # pipe contents of the file through
-        md5_returned = hashlib.md5(data).hexdigest()
-
-        assert md5_returned==md5_hash, f"{os.path.basename(path)} is corrupted, please download it again"
+    """
+    This version of cehck_md5 reads file chunk by chunk to avoid memory error (file size > RAM)
+    """
+    md5 = hashlib.md5()
+    with open(path,'rb') as f: 
+        for chunk in iter(lambda: f.read(8192), b''): 
+            md5.update(chunk)
+    md5_returned = md5.hexdigest()
+    assert md5_returned==md5_hash, f"{os.path.basename(path)} is corrupted, please download it again"
