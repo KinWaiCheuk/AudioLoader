@@ -25,6 +25,9 @@ from torchaudio.datasets.utils import (
 from collections import OrderedDict
 import math
 
+import json
+import mido
+
 """
 This file is based on https://github.com/jongwook/onsets-and-frames
 
@@ -57,6 +60,7 @@ class AMTDataset(Dataset):
     
     
     def load(self, index):
+        global saved_data_path
         """
         load an audio track and the corresponding labels
         Returns
@@ -72,13 +76,15 @@ class AMTDataset(Dataset):
             velocity: torch.ByteTensor, shape = [num_steps, midi_bins]
                 a matrix that contains MIDI velocity values at the frame locations
         """
-        
-        audio_path = self._walker[index]
-        tsv_path = audio_path.replace(self.ext_audio, '.tsv')
-        saved_data_path = audio_path.replace(self.ext_audio, '.pt')
-        if os.path.exists(audio_path.replace(self.ext_audio, '.pt')) and self.use_cache==True: 
+        if self.dataset == 'MAESTRO':
+            audio_path,tsv_path = self._walker[index]
+        else:
+            audio_path = self._walker[index]
+            tsv_path = audio_path.replace(self.ext_audio, '.tsv')
+            saved_data_path = audio_path.replace(self.ext_audio, '.pt')
+            if os.path.exists(audio_path.replace(self.ext_audio, '.pt')) and self.use_cache==True: 
             # Check if .pt files exist, if so just load the files
-            return torch.load(saved_data_path)
+                return torch.load(saved_data_path)
         # Otherwise, create the .pt files
         waveform, sr = torchaudio.load(audio_path)
         if waveform.dim()==2:
@@ -94,7 +100,9 @@ class AMTDataset(Dataset):
                     tsv=tsv,
                     pianoroll=pianoroll,
                     velocity_roll=velocity_roll)
-        if self.use_cache: # Only save new cache data in .pt format when use_cache==True
+        
+        if self.use_cache and self.dataset != 'MAESTRO' : # Only save new cache data in .pt format when use_cache==True
+            print(self.dataset != 'MAESTRO')
             torch.save(data, saved_data_path)
         return data      
     
@@ -156,14 +164,23 @@ class AMTDataset(Dataset):
     def downsample_exist(self, output_format='flac'):
         if len(self._walker) == 0:
             return 0
-        
-        for wavfile in tqdm(self._walker, desc=f'checking downsampled files'):
-            try:
-                dsampled_audio = wavfile.replace(self.ext_audio, f'.{output_format}')
-                assert os.path.isfile(dsampled_audio), f"{dsampled_audio} is missing"
-            except Exception as e:
-                warnings.warn(e.args[0])
-                return False
+
+        if self.dataset == 'MAESTRO': 
+             for wavfile, tsvfile in tqdm(self._walker, desc=f'checking downsampled files'):
+                try:
+                    dsampled_audio = wavfile.replace(self.ext_audio, f'.{output_format}')
+                    assert os.path.isfile(dsampled_audio), f"{dsampled_audio} is missing"
+                except Exception as e:
+                    warnings.warn(e.args[0])
+                    return False
+        else:        
+            for wavfile in tqdm(self._walker, desc=f'checking downsampled files'):
+                try:
+                    dsampled_audio = wavfile.replace(self.ext_audio, f'.{output_format}')
+                    assert os.path.isfile(dsampled_audio), f"{dsampled_audio} is missing"
+                except Exception as e:
+                    warnings.warn(e.args[0])
+                    return False
             
         # if downsampled audio exist, check if the sr is correct.
         _, sr = torchaudio.load(dsampled_audio)               
@@ -695,4 +712,204 @@ class MusicNet(AMTDataset):
             Parallel(n_jobs=num_threads)\
             (delayed(_resample)(wavfile, sr, output_format)\
              for wavfile in tqdm(original_walker,
-                                 desc=f'Resampling to {sr}Hz .{output_format} files'))        
+                                 desc=f'Resampling to {sr}Hz .{output_format} files'))  
+            
+            
+            
+#start of class MAESTRO
+def parse_midi(path):
+    """open midi file and return np.array of (onset, offset, note, velocity) rows"""
+    midi = mido.MidiFile(path)
+
+    time = 0
+    sustain = False
+    events = []
+    for message in midi:
+        time += message.time
+
+        if message.type == 'control_change' and message.control == 64 and (message.value >= 64) != sustain:
+            # sustain pedal state has just changed
+            sustain = message.value >= 64
+            event_type = 'sustain_on' if sustain else 'sustain_off'
+            event = dict(index=len(events), time=time, type=event_type, note=None, velocity=0)
+            events.append(event)
+
+        if 'note' in message.type:
+            # MIDI offsets can be either 'note_off' events or 'note_on' with zero velocity
+            velocity = message.velocity if message.type == 'note_on' else 0
+            event = dict(index=len(events), time=time, type='note', note=message.note, velocity=velocity, sustain=sustain)
+            events.append(event)
+
+    notes = []
+    for i, onset in enumerate(events):
+        if onset['velocity'] == 0:
+            continue
+
+        # find the next note_off message
+        offset = next(n for n in events[i + 1:] if n['note'] == onset['note'] or n is events[-1])
+
+        if offset['sustain'] and offset is not events[-1]:
+            # if the sustain pedal is active at offset, find when the sustain ends
+            offset = next(n for n in events[offset['index'] + 1:] if n['type'] == 'sustain_off' or n is events[-1])
+
+        note = (onset['time'], offset['time'], onset['note'], onset['velocity'])
+        notes.append(note)
+
+    return np.array(notes)
+    
+    
+class MAESTRO(AMTDataset):
+    def __init__(self, 
+                 root, 
+                 groups=None,
+                 sampling_rate=None,
+                 **kwargs):
+        super().__init__(**kwargs)
+        
+        self.url_dict = {'maestro-v2.0.0': 'https://storage.googleapis.com/magentadata/datasets/maestro/v2.0.0/maestro-v2.0.0.zip',
+                         'maestro-v2.0.0-midi': 'https://storage.googleapis.com/magentadata/datasets/maestro/v2.0.0/maestro-v2.0.0-midi.zip',
+                        }
+        self.hash_dict = {'maestro-v2.0.0': '7a6c23536ebcf3f50b1f00ac253886a7',
+                          'maestro-v2.0.0-midi': '8a45cc678a8b23cd7bad048b1e9034c5'
+                         }
+        self.root = root
+        self.ext_archive = '.zip'
+        self.name_archive = 'maestro-v2.0.0'
+        self.midi_name_archive = 'maestro-v2.0.0-midi'
+        self.original_ext = '.wav'        
+        self.sampling_rate = sampling_rate
+        self.dataset = 'MAESTRO'
+
+             
+        groups = groups if isinstance(groups, list) else self.available_groups(groups)
+        self.groups = groups
+        
+        if self.download: 
+            if os.path.isdir(os.path.join(self.root, self.name_archive)): #check for the maestro-v2.0.0 folder
+                print(f'Dataset folder exists, skipping download...')
+            elif os.path.isfile(os.path.join(self.root, 'maestro-v2.0.0.zip')) and os.path.isfile(os.path.join(self.root, 'maestro-v2.0.0-midi.zip')): 
+                #when don't have 'maestro-v2.0.0' folder, check for the zip and extract
+                print(f'maestro-v2.0.0.zip and maestro-v2.0.0-midi.zip exists, checking MD5...')
+                check_md5(os.path.join(self.root, self.name_archive+self.ext_archive), self.hash_dict[self.name_archive])
+                tqdm(extract_archive(os.path.join(self.root, self.name_archive+self.ext_archive)))
+                
+                check_md5(os.path.join(self.root, self.midi_name_archive+self.ext_archive), self.hash_dict[self.midi_name_archive])
+                tqdm(extract_archive(os.path.join(self.root, self.midi_name_archive+self.ext_archive)))
+            
+            elif (not os.path.isfile(os.path.join(self.root, 'maestro-v2.0.0.zip'))) and (not os.path.isfile(os.path.join(self.root, 'maestro-v2.0.0-midi.zip'))):
+                #download both zip file and extract
+                download_url(self.url_dict['maestro-v2.0.0'], self.root, hash_value=self.hash_dict['maestro-v2.0.0'], hash_type='md5')
+                download_url(self.url_dict['maestro-v2.0.0-midi'], self.root, hash_value=self.hash_dict['maestro-v2.0.0-midi'], hash_type='md5')
+                print(f'Download finished, extracting zip file')
+                tqdm(extract_archive(os.path.join(self.root, self.name_archive+self.ext_archive)))
+                tqdm(extract_archive(os.path.join(self.root, self.midi_name_archive+self.ext_archive)))
+       
+        elif os.path.isdir(os.path.join(self.root, self.name_archive)): #when download=False, and maestro-v2.0.0 folder exist
+            pass
+        elif os.path.isfile(os.path.join(self.root, 'maestro-v2.0.0.zip')) and os.path.isfile(os.path.join(self.root, 'maestro-v2.0.0-midi.zip')): 
+            #when don't have 'maestro-v2.0.0' folder, check for the zip 
+            print(f'maestro-v2.0.0.zip and maestro-v2.0.0-midi.zip exists, checking MD5...')
+            check_md5(os.path.join(self.root, self.name_archive+self.ext_archive), self.hash_dict[self.name_archive])
+            extract_archive(os.path.join(self.root, self.name_archive+self.ext_archive))
+
+            check_md5(os.path.join(self.root, self.midi_name_archive+self.ext_archive), self.hash_dict[self.midi_name_archive])
+            extract_archive(os.path.join(self.root, self.midi_name_archive+self.ext_archive))
+
+        else:    
+            raise FileNotFoundError(f"Dataset not found at {self.root}, please specify the correct location or set `download=True`")
+
+            
+        self._walker = []     #self._walker is the combined audio path audio list for all groups    
+        for group in self.groups: # self.groups is a list of str, can be more than one group inside
+                self._walker.extend(self.files(group)) 
+        
+        if self.preload:
+            self._preloader = []
+            for i in tqdm(range(len(self._walker)),desc=f'Pre-loading data to RAM'):
+                self._preloader.append(self.load(i))
+                
+        
+        if self.sampling_rate and (self.sampling_rate != 44100):
+            # When sampling rate is given, it will automatically create a downsampled copy
+            if self.downsample_exist('flac'): #it will return False if sr of existing .flac not match with self.sampling_rate 
+                print(f"downsampled audio exists, skipping downsampling")
+            else:
+                print('doing resample()')
+                self.resample(self.sampling_rate, 'flac', num_threads=4)
+
+            
+#             # reload the flac audio after downsampling only when _walker is empty
+#             if len(self._walker) == 0:
+#                 for group in groups:
+#                     wav_paths = glob(os.path.join(self.root, self.name_archive, group, f'*{self.ext_audio}'))
+#                     self._walker.extend(wav_paths)
+    
+    def files(self, group):
+        metadata = json.load(open(os.path.join(self.root, self.name_archive, 'maestro-v2.0.0.json')))
+        file = sorted([(os.path.join(self.root, self.name_archive, row['audio_filename']),
+                         os.path.join(self.root, self.name_archive, row['midi_filename'])) for row in metadata if row['split'] == group])
+
+        files=[] #use to create [_walker]
+        for audio, midi in file:                
+            if (self.sampling_rate is None) or (self.sampling_rate == 44100):
+                files.append((audio, midi))
+            else:
+                self.sampling_rate != 44100 
+                files.append((audio.replace('.wav', '.flac'), midi))
+
+        _walker = []  #_walker is the list for individaul group, _walker[idx]= ('path to wav', 'path to tsv')
+        for audio_path, midi_path in tqdm(files):          
+            tsv_filename = midi_path.replace('.midi', '.tsv').replace('.mid', '.tsv')
+            if not os.path.exists(tsv_filename):
+                midi = parse_midi(midi_path)
+                np.savetxt(tsv_filename, midi, fmt='%.6f', delimiter='\t', header='onset,offset,note,velocity')
+            _walker.append((audio_path, tsv_filename))
+        return _walker 
+ 
+  
+    
+    def available_groups(self, group):
+        if group=='train':
+            return ['train']
+        elif group=='test':
+            return ['test']
+        elif group=='validation':
+            return ['validation']
+        
+    def resample(self, sr, output_format='flac', num_threads=-1):
+        """
+        It is known that sometimes num_threads>0 (using multiprocessing) might cause corrupted audio after resampling
+        
+        Resample audio clips to the target sample rate `sr` and the target format `output_format`.
+        This method requires `pydub`.
+        After resampling, you need to create another instance of `MAESTRO` in order to load the new
+        audio files instead of the original `.wav` files.
+        """   
+        
+        from pydub import AudioSegment        
+        def _resample(wavfile, sr, output_format):  #wavfile is  .flac
+            sound = AudioSegment.from_wav(wavfile.replace('.flac', self.original_ext)) #wavfile now is  .wav
+            sound = sound.set_frame_rate(sr) # downsample it to sr
+            sound = sound.set_channels(1) # Convert Stereo to Mono
+            sound.export(wavfile.replace(self.original_ext, f'.{output_format}'), format=output_format)   
+            #wavfile now is .flac          
+        
+             
+        if num_threads==-1: #when num_threads==-1, it will use all the CPU  
+            Parallel(n_jobs=multiprocessing.cpu_count())\
+            (delayed(_resample)(wavfile, sr, output_format)\
+            for wavfile,tsvfile in tqdm(self._walker,
+                                 desc=f'Resampling to {sr}Hz .{output_format} files')) 
+
+        elif num_threads==0:                            
+            for wavfile,tsvfile in tqdm(self._walker, desc=f'Resampling to {sr}Hz .{output_format} files'):
+                _resample(wavfile, sr, output_format)  #wavfile is the audio path in [self._walker]
+        else:
+            Parallel(n_jobs=num_threads)\
+            (delayed(_resample)(wavfile, sr, output_format)\
+            for wavfile, tsvfile in tqdm(self._walker,
+                                 desc=f'Resampling to {sr}Hz .{output_format} files'))     
+
+    
+            
+            
