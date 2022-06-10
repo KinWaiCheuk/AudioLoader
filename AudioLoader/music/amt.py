@@ -78,7 +78,7 @@ class AMTDataset(Dataset):
         """
         if self.dataset == 'MAESTRO':
             audio_path,tsv_path = self._walker[index]
-        else:
+        elif self.dataset == 'MusicNet' or self.dataset == 'MAPS':
             audio_path = self._walker[index]
             tsv_path = audio_path.replace(self.ext_audio, '.tsv')
             saved_data_path = audio_path.replace(self.ext_audio, '.pt')
@@ -102,7 +102,6 @@ class AMTDataset(Dataset):
                     velocity_roll=velocity_roll)
         
         if self.use_cache and self.dataset != 'MAESTRO' : # Only save new cache data in .pt format when use_cache==True
-            print(self.dataset != 'MAESTRO')
             torch.save(data, saved_data_path)
         return data      
     
@@ -173,7 +172,7 @@ class AMTDataset(Dataset):
                 except Exception as e:
                     warnings.warn(e.args[0])
                     return False
-        else:        
+        elif self.dataset == 'MusicNet' or self.dataset == 'MAPS':        
             for wavfile in tqdm(self._walker, desc=f'checking downsampled files'):
                 try:
                     dsampled_audio = wavfile.replace(self.ext_audio, f'.{output_format}')
@@ -329,6 +328,7 @@ class MAPS(AMTDataset):
         self.original_ext = '.wav'        
         self.data_type = data_type
         self.sampling_rate = sampling_rate
+        self.dataset == 'MAPS'
              
         groups = groups if isinstance(groups, list) else self.available_groups(groups)
         self.groups = groups
@@ -573,6 +573,7 @@ class MusicNet(AMTDataset):
         self.name_archive = 'musicnet'
         self.original_ext = '.wav'
         self.sampling_rate  = sampling_rate
+        self.dataset = 'MusicNet'
              
         groups = groups if isinstance(groups, list) else self.available_groups(groups)
         self.groups = groups
