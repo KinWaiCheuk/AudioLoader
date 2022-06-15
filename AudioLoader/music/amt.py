@@ -555,7 +555,6 @@ class MusicNet(AMTDataset):
     def __init__(self,
                  root='./',
                  groups='all',
-                 split='train',
                  sampling_rate=None,
                  **kwargs):
         """
@@ -626,12 +625,17 @@ class MusicNet(AMTDataset):
             self._walker.extend(wav_paths)
             
                 
-        if sampling_rate:
+        if self.sampling_rate and (self.sampling_rate != 44100):
             # When sampling rate is given, it will automatically create a downsampled copy
             if self.downsample_exist('flac'):
                 print(f"downsampled audio exists, skipping downsampling")
             else:
+                print('doing resample()')
                 self.resample(sampling_rate, 'flac', num_threads=4)
+                
+            for idx, audio in tqdm((enumerate(self._walker))):
+                self._walker[idx] = audio.replace('.wav', '.flac')  
+            # if need resample, auto change .wav path to .flac path in self._walker
             
             # reload the flac audio after downsampling only when _walker is empty
             if len(self._walker) == 0:
@@ -692,11 +696,7 @@ class MusicNet(AMTDataset):
         This method requires `pydub`.
         After resampling, you need to create another instance of `MAPS` in order to load the new
         audio files instead of the original `.wav` files.
-        """
-        original_walker = []
-        for group in self.groups:
-            wav_paths = glob(os.path.join(self.root, self.name_archive, f'{group}_data', f'*{self.original_ext}'))
-            original_walker.extend(wav_paths)        
+        """      
         
         from pydub import AudioSegment        
         def _resample(wavfile, sr, output_format):
@@ -711,12 +711,12 @@ class MusicNet(AMTDataset):
              for wavfile in tqdm(self._walker,
                                  desc=f'Resampling to {sr}Hz .{output_format} files'))            
         elif num_threads==0:
-            for wavfile in tqdm(original_walker, desc=f'Resampling to {sr}Hz .{output_format} files'):
+            for wavfile in tqdm(self._walker, desc=f'Resampling to {sr}Hz .{output_format} files'):
                 _resample(wavfile, sr, output_format)
         else:
             Parallel(n_jobs=num_threads)\
             (delayed(_resample)(wavfile, sr, output_format)\
-             for wavfile in tqdm(original_walker,
+             for wavfile in tqdm(self._walker,
                                  desc=f'Resampling to {sr}Hz .{output_format} files'))  
             
             
