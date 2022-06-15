@@ -60,7 +60,6 @@ class AMTDataset(Dataset):
     
     
     def load(self, index):
-        global saved_data_path
         """
         load an audio track and the corresponding labels
         Returns
@@ -80,11 +79,14 @@ class AMTDataset(Dataset):
             audio_path,tsv_path = self._walker[index]
         elif self.dataset == 'MusicNet' or self.dataset == 'MAPS':
             audio_path = self._walker[index]
-            tsv_path = audio_path.replace(self.ext_audio, '.tsv')
-            saved_data_path = audio_path.replace(self.ext_audio, '.pt')
-            if os.path.exists(audio_path.replace(self.ext_audio, '.pt')) and self.use_cache==True: 
+            if self.sampling_rate and (self.sampling_rate != 44100): 
+                tsv_path = audio_path.replace('.flac', '.tsv')                
+            else:
+                tsv_path = audio_path.replace(self.ext_audio, '.tsv')
+#             saved_data_path = audio_path.replace(self.ext_audio, '.pt')
+#             if os.path.exists(audio_path.replace(self.ext_audio, '.pt')) and self.use_cache==True: 
             # Check if .pt files exist, if so just load the files
-                return torch.load(saved_data_path)
+#                 return torch.load(saved_data_path)
         # Otherwise, create the .pt files
         waveform, sr = torchaudio.load(audio_path)
         if waveform.dim()==2:
@@ -101,8 +103,8 @@ class AMTDataset(Dataset):
                     pianoroll=pianoroll,
                     velocity_roll=velocity_roll)
         
-        if self.use_cache and self.dataset != 'MAESTRO' : # Only save new cache data in .pt format when use_cache==True
-            torch.save(data, saved_data_path)
+#         if self.use_cache: # Only save new cache data in .pt format when use_cache==True
+#             torch.save(data, saved_data_path)
         return data      
     
     
@@ -328,7 +330,7 @@ class MAPS(AMTDataset):
         self.original_ext = '.wav'        
         self.data_type = data_type
         self.sampling_rate = sampling_rate
-        self.dataset == 'MAPS'
+        self.dataset = 'MAPS'
              
         groups = groups if isinstance(groups, list) else self.available_groups(groups)
         self.groups = groups
@@ -384,7 +386,7 @@ class MAPS(AMTDataset):
                 
 #         print(f"Loading {len(groups)} group{'s' if len(groups) > 1 else ''} "
 #               f"of {self.__class__.__name__} at {os.path.join(self.root, self.name_archive)}")
-        self._walker = []
+        self._walker = [] #if sr=none or 44100, self.walker is .wav 
     
         for group in groups:
             wav_paths = glob(os.path.join(self.root, self.name_archive, group, data_type, f'*{self.ext_audio}'))
@@ -395,18 +397,23 @@ class MAPS(AMTDataset):
             for i in tqdm(range(len(self._walker)),desc=f'Pre-loading data to RAM'):
                 self._preloader.append(self.load(i))
                 
-        if sampling_rate:
+        if self.sampling_rate and (self.sampling_rate != 44100):
             # When sampling rate is given, it will automatically create a downsampled copy
             if self.downsample_exist('flac'):
                 print(f"downsampled audio exists, skipping downsampling")
             else:
+                print('doing resample()')
                 self.resample(sampling_rate, 'flac', num_threads=4)
+                
+            for idx, audio in tqdm((enumerate(self._walker))):
+                self._walker[idx] = audio.replace('.wav', '.flac')  
+            # if need resample, auto change .wav path to .flac path in self._walker
             
             # reload the flac audio after downsampling only when _walker is empty
-            if len(self._walker) == 0:
-                for group in groups:
-                    wav_paths = glob(os.path.join(self.root, self.name_archive, group, data_type, f'*{self.ext_audio}'))
-                    self._walker.extend(wav_paths)
+#             if len(self._walker) == 0:
+#                 for group in groups:
+#                     wav_paths = glob(os.path.join(self.root, self.name_archive, group, data_type, f'*{self.ext_audio}'))
+#                     self._walker.extend(wav_paths)
             
             
          
@@ -521,10 +528,6 @@ class MAPS(AMTDataset):
         After resampling, you need to create another instance of `MAPS` in order to load the new
         audio files instead of the original `.wav` files.
         """
-        original_walker = []
-        for group in self.groups:
-            wav_paths = glob(os.path.join(self.root, self.name_archive, group, self.data_type, f'*{self.original_ext}'))
-            original_walker.extend(wav_paths)        
         
         from pydub import AudioSegment        
         def _resample(wavfile, sr, output_format):
@@ -539,12 +542,12 @@ class MAPS(AMTDataset):
              for wavfile in tqdm(self._walker,
                                  desc=f'Resampling to {sr}Hz .{output_format} files'))            
         elif num_threads==0:
-            for wavfile in tqdm(original_walker, desc=f'Resampling to {sr}Hz .{output_format} files'):
+            for wavfile in tqdm(self._walker, desc=f'Resampling to {sr}Hz .{output_format} files'):
                 _resample(wavfile, sr, output_format)
         else:
             Parallel(n_jobs=num_threads)\
             (delayed(_resample)(wavfile, sr, output_format)\
-             for wavfile in tqdm(original_walker,
+             for wavfile in tqdm(self._walker,
                                  desc=f'Resampling to {sr}Hz .{output_format} files'))                
 
                 
@@ -611,12 +614,13 @@ class MusicNet(AMTDataset):
                 print(f'Converting csv files into tsv files')
                 self.csv2tsv()                
             else:
-                raise ValueError(f'{root} does not contain the MAPS folder, '
+                raise ValueError(f'{root} does not contain the MusicNet folder, '
                                  f'please specify the correct path or download it by setting `download=True`')  
                 
 #         print(f"Loading {len(groups)} group{'s' if len(groups) > 1 else ''} "
 #               f"of {self.__class__.__name__} at {os.path.join(self.root, self.name_archive)}")
         self._walker = []
+    
         for group in groups:
             wav_paths = glob(os.path.join(self.root, self.name_archive, f'{group}_data', f'*{self.ext_audio}'))
             self._walker.extend(wav_paths)
