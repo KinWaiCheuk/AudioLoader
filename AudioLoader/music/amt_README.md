@@ -108,16 +108,16 @@ To use this dataset for the first time, set `download=True`.
 from AudioLoader.music.amt import MusicNet
 dataset = MusicNet('./',
                     groups='all',
-                    ext_audio='.flac',
                     use_cache=False,
-                    download=False
+                    download=False,
                     preload=True,
-                    sequence_length=sequence_length,
+                    sequence_length=None,
                     seed=42,
                     hop_length=512,
                     max_midi=108,
                     min_midi=21,
                     ext_audio='.wav'
+                    sampling_rate=None
                    )
 ```
 
@@ -161,7 +161,6 @@ To use this dataset for the first time, set `download=True`.
 from AudioLoader.music.amt import MAESTRO
 dataset = MAESTRO(root='./',
                groups=['train'],                
-               use_cache=True,
                download=True,
                preload=False,
                sequence_length=None,
