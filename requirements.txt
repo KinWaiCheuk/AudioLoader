@@ -4,5 +4,5 @@ joblib==1.1.0
 torch==1.11.0
 torchaudio==0.11.0
 mido==1.2.10
-
+pydub==0.25.1
 musdb==0.4.0
