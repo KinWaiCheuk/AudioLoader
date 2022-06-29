@@ -88,7 +88,7 @@ dataset.extract_tsv()
 ```
 Convert midi files into tsv files for easy loading.
 
-3. ### clear_caches
+3. #### clear_caches
 ```python
 dataset.clear_caches()
 ```
@@ -106,19 +106,19 @@ To use this dataset for the first time, set `download=True`.
 
 ```python
 from AudioLoader.music.amt import MusicNet
-musicnet_dataset = MusicNet('./',
-                            groups='all',
-                            ext_audio='.flac',
-                            use_cache=False,
-                            download=False
-                            preload=True,
-                            sequence_length=sequence_length,
-                            seed=42,
-                            hop_length=512,
-                            max_midi=108,
-                            min_midi=21,
-                            ext_audio='.wav'
-                           )
+dataset = MusicNet('./',
+                    groups='all',
+                    use_cache=False,
+                    download=False,
+                    preload=True,
+                    sequence_length=None,
+                    seed=42,
+                    hop_length=512,
+                    max_midi=108,
+                    min_midi=21,
+                    ext_audio='.wav'
+                    sampling_rate=None
+                   )
 ```
 
 This will download, unzip, and convert the `.csv` files into `.tsv` files.
@@ -149,3 +149,62 @@ for batch in loader:
 ### Other functionalities
 
 Same as [MAPS](./README.md#MAPS)
+
+
+## MAESTRO
+### Introduction
+This repository is designed for [MAESTROV2.0.0.](https://magenta.tensorflow.org/datasets/maestro#v200). It contains about 200 hours of piano track. Metadata of each track is included in maestro-v2.0.0.csv and maestro-v2.0.0.json. The train set, validation set and test set consists of 967 tracks, 137 tracks and 178 tracks respectively.
+
+### Usage
+To use this dataset for the first time, set `download=True`. 
+```python
+from AudioLoader.music.amt import MAESTRO
+dataset = MAESTRO(root='./',
+               groups=['train'],                
+               download=True,
+               preload=False,
+               sequence_length=None,
+               seed=42,
+               hop_length=512,
+               max_midi=108,
+               min_midi=21,
+               ext_audio='.wav',
+               sampling_rate=None)
+```
+This will download and unzip both `maestro-v2.0.0.zip` and `maestro-v2.0.0-midi.zip`. You are supposed to get a folder named as maestro-v2.0.0 with maestro-v2.0.0.csv and maestro-v2.0.0.json inside.
+
+All arugments are same as the [MAPS](#MAPS) dataset, you may want to check the avaliable arugments [here](#MAPS).
+
+Avaliable choices for `groups` in MAESTRO are `'train', 'validation' and 'test'`
+
+`dataset[i]` returns a dictionary containing:
+
+```python
+{'path': './maestro-v2.0.0/2004/MIDI-Unprocessed_SMF_02_R1_2004_01-05_ORIG_MID--AUDIO_02_R1_2004_05_Track05_wav.wav',
+ 'audio': tensor([ 0.0179,  0.0264,  0.0230,  ..., -0.1169, -0.0786, -0.0732]),
+ 'velocity': tensor([[...]]),
+ 'onset': tensor([[...]]),
+ 'offset': tensor([[...]]),
+ 'frame': tensor([[...]]),
+ 'sr': 44100}
+```
+
+
+### Getting a batch of audio segment
+```python
+loader = DataLoader(dataset, batch_size=4)
+for batch in loader:
+    audios = batch['audio'].to(device)
+    frames = batch['frame'].to(device)
+```
+
+### Other functionalities
+1. #### resample
+```python
+dataset.resample(sr, output_format='flac', num_threads=-1)
+dataset = MAESTRO('./', groups=['train'], ext_audio='.wav')
+```
+Resample audio clips to the target sample rate `sr` and the target format `output_format`. This method requires `pydub`. After resampling, you will get flace audio clips with target sample rate.
+
+`num_threads` sets the number of threads to use when resampling audio clips. The default value `-1` is to use all available threads. If corrupted audio clips were produced when using `num_threads>0`, set `num_threads=0` to completely disable multithreading.
+

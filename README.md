@@ -9,12 +9,10 @@ This will be a collection of PyTorch audio dataset loaders that are not availabl
 1. [Automatic Music Transcription (AMT)](./AudioLoader/music/amt_README.md#Automatic-Music-Transcription)
     1. [MAPS](./AudioLoader/music/amt_README.md#MAPS)
     1. [MusicNet](./AudioLoader/music/amt_README.md#MusicNet)
+    1. [MAESTRO](./AudioLoader/music/amt_README.md#MAESTRO)
 1. [Music Source Separation (MSS)](./AudioLoader/music/mss/mss_README.md#Music-Source-Separation)
     1. [FastMUSDB](./AudioLoader/music/mss/mss_README.md#FastMUSDB)
     1. [MusdbHQ](./AudioLoader/music/mss/mss_README.md#MusdbHQ)
-
-**TODO:**
-1. MASETRO
 
 ## Installation
 `pip install git+https://github.com/KinWaiCheuk/AudioLoader.git`
