@@ -30,13 +30,12 @@ from collections import OrderedDict
 import math
 
 metadata= './metadata'
-sources= ['drums', 'bass', 'other', 'vocals']
 MIXTURE = 'mixture'
 EXT = '.wav'
 
 class MusdbHQ:
     def __init__(
-            self,root, subset,download = False,segment=None, shift=None, normalize=True,
+            self,root, subset, sources, download = False,segment=None, shift=None, normalize=True,
             samplerate=44100, channels=2, ext=EXT):
         """
         MusdbHQ (or mp3 set for that matter). Can be used to train
@@ -45,6 +44,7 @@ class MusdbHQ:
         Args:
             root (Path or str): root folder for the dataset.
             subset (str): training ,validation, traininf_all or test
+            sources (list): ['drums', 'bass', 'other', 'vocals']
             download (bool): Whether to download the dataset if it is not found at root path. (default: ``False``).
             segment (None or float): segment length in seconds. If `None`, returns entire tracks.
             shift (None or float): stride in seconds bewteen samples.
