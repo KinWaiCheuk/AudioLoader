@@ -47,6 +47,7 @@ To use this dataset for the first time, set `download=True`.
 from AudioLoader.music.mss import MusdbHQ
 dataset = MusdbHQ(root, 
                   subset= 'training', 
+                  sources= ['drums', 'bass', 'other', 'vocals']
                   download = True, 
                   segment=None, 
                   shift=None, 
@@ -67,5 +68,5 @@ For the `subset` argument, you can choose from `'training_all'`, `'training'` , 
 `dataset[i]` returns a tensor containing:
  
 ```python
-(4, 2, 44100*segment)
+(number of sources, number of channel, 44100*segment)
 ```
