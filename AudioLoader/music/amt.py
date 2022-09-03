@@ -27,7 +27,7 @@ import math
 
 import json
 import mido
-import pkg_resources
+import importlib
 
 """
 This file is based on https://github.com/jongwook/onsets-and-frames
@@ -397,7 +397,7 @@ class MAPS(AMTDataset):
     
 #             template = pkg_resources.read_text('overlapping.pkl')
 #             with open(a, 'rb') as f:
-            test_names = pickle.load(pkg_resources.resource_stream("AudioLoader", 'music/overlapping.pkl'))
+            test_names = pickle.load(importlib.resources.open_binary("AudioLoader.music", 'overlapping.pkl'))
             filtered_flacs = []    
             for i in self._walker:
                 if any([substring in i for substring in test_names]):
