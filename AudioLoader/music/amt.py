@@ -27,6 +27,7 @@ import math
 
 import json
 import mido
+import pkg_resources
 
 """
 This file is based on https://github.com/jongwook/onsets-and-frames
@@ -332,8 +333,7 @@ class MAPS(AMTDataset):
         self.sampling_rate = sampling_rate
         self.dataset = 'MAPS'
              
-        groups = groups if isinstance(groups, list) else self.available_groups(groups)
-        self.groups = groups
+        self.groups = groups if isinstance(groups, list) else self.available_groups(groups)
         
         
         if self.download:
@@ -341,9 +341,9 @@ class MAPS(AMTDataset):
             if not os.path.isdir(os.path.join(root, self.name_archive)):
                 os.makedirs(os.path.join(root, self.name_archive)) 
 
-            if self._check_all_groups_exist(groups): # If data folder does not exist, check if zip files exist
+            if self._check_all_groups_exist(self.groups): # If data folder does not exist, check if zip files exist
                 print(f'All zip files exist.')
-                self.extract_subfolders(groups)
+                self.extract_subfolders(self.groups)
                 # Downsampling audio to 16kHz flac formats
                 self.extract_tsv()                   
 
@@ -379,7 +379,7 @@ class MAPS(AMTDataset):
         else:
             if os.path.isdir(os.path.join(root, self.name_archive)):
                 print(f'MAPS folder found, checking content integrity...')
-                self.extract_subfolders(groups)   
+                self.extract_subfolders(self.groups)   
             else:
                 raise ValueError(f'{root} does not contain the MAPS folder, '
                                  f'please specify the correct path or download it by setting `download=True`')
@@ -388,9 +388,23 @@ class MAPS(AMTDataset):
 #               f"of {self.__class__.__name__} at {os.path.join(self.root, self.name_archive)}")
         self._walker = [] #if sr=none or 44100, self.walker is .wav 
     
-        for group in groups:
+        for group in self.groups:
             wav_paths = glob(os.path.join(self.root, self.name_archive, group, data_type, f'*{self.ext_audio}'))
             self._walker.extend(wav_paths)
+
+        if self.overlap==False:
+            assert groups!='test', 'When loading test set, please set overlap=True'
+    
+#             template = pkg_resources.read_text('overlapping.pkl')
+#             with open(a, 'rb') as f:
+            test_names = pickle.load(pkg_resources.resource_stream("AudioLoader", './music/overlapping.pkl'))
+            filtered_flacs = []    
+            for i in self._walker:
+                if any([substring in i for substring in test_names]):
+                    pass
+                else:
+                    filtered_flacs.append(i)
+            self._walker = filtered_flacs 
             
         if self.preload:
             self._preloader = []
