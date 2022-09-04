@@ -81,7 +81,7 @@ class AMTDataset(Dataset):
         elif self.dataset == 'MusicNet' or self.dataset == 'MAPS':
             audio_path = self._walker[index]
             if self.sampling_rate and (self.sampling_rate != 44100): 
-                tsv_path = audio_path.replace('.flac', '.tsv')                
+                tsv_path = audio_path.replace('.flac', '.tsv')
             else:
                 tsv_path = audio_path.replace(self.ext_audio, '.tsv')
 #             saved_data_path = audio_path.replace(self.ext_audio, '.pt')
@@ -345,7 +345,7 @@ class MAPS(AMTDataset):
                 print(f'All zip files exist.')
                 self.extract_subfolders(self.groups)
                 # Downsampling audio to 16kHz flac formats
-                self.extract_tsv()                   
+                             
 
 #         Downloading the complete zip file is broken at "https://amubox.univ-amu.fr/s/iNG0xc5Td1Nv4rR/download"
 #         if self.download:
@@ -379,7 +379,7 @@ class MAPS(AMTDataset):
         else:
             if os.path.isdir(os.path.join(root, self.name_archive)):
                 print(f'MAPS folder found, checking content integrity...')
-                self.extract_subfolders(self.groups)   
+                self.extract_subfolders(self.groups)
             else:
                 raise ValueError(f'{root} does not contain the MAPS folder, '
                                  f'please specify the correct path or download it by setting `download=True`')
@@ -438,6 +438,7 @@ class MAPS(AMTDataset):
                   f'Please use .clear_caches() to remove existing .pt files to refresh caches')
 
     def extract_subfolders(self, groups):
+        missing_folder = False
         for group in groups:
             group_path = os.path.join(self.root, self.name_archive, group)
             if not os.path.isdir(group_path):
@@ -453,7 +454,11 @@ class MAPS(AMTDataset):
                     check_md5(os.path.join(self.root, self.name_archive, group+'.zip'), self.hash_dict[group])
                     extract_archive(os.path.join(self.root, self.name_archive, group+'.zip'))
                 print(f' '*50, end='\r')
-                print(f'{group} extracted.')        
+                print(f'{group} extracted.')
+                missing_folder = True
+        if missing_folder:
+            self.extract_tsv()      
+            
                 
                 
     def _check_all_groups_exist(self, groups):
@@ -490,6 +495,7 @@ class MAPS(AMTDataset):
         
         tsvs = glob(os.path.join(self.root, self.name_archive, '*', self.data_type, '*.tsv'))
         num_tsvs = len(tsvs)
+        
         if num_tsvs>0:
             decision = input(f"There are already {num_tsvs} tsv files.\n"+
                              f"Do you want to overwrite them? [yes/no]")
