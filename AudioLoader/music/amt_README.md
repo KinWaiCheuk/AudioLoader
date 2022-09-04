@@ -12,8 +12,8 @@ from AudioLoader.music.amt import MAPS
 dataset = MAPS(root='./',
                groups='all',
                data_type='MUS',
-               overlap=True,
-               use_cache=True,
+               overlap=False,
+               use_cache=False,
                download=True,
                preload=False,
                sequence_length=None,
@@ -27,9 +27,11 @@ dataset = MAPS(root='./',
 
 This will download, unzip, and extract the `.tsv` labels.
 
-If `use_cache=True`, the output dictionary containing `(path, audio, velocity, onset, offset, frame, sr)` will be saved as a `.pt` file. Loading from `.pt` files is slightly faster.
+If `use_cache=True`, the output dictionary containing `(path, audio, velocity, onset, offset, frame, sr)` will be saved as a `.pt` file. Loading from `.pt` files is slightly faster. (This feature is still under development)
 
-If `preload=True`, the whole dataset will be loaded into RAM, which allows a faster data accessing for each iteration. If the dataset is too large to be loaded in RAM, you can set `preload=False`
+If `preload=True`, the whole dataset will be loaded into RAM, which allows a faster data accessing for each iteration. If the dataset is too large to be loaded in your RAM, you can set `preload=False`.
+
+If `overlap=False`, it will remove samples in train set that are overlapping with the test set. It is recommended to keep `overlap=False` to be consistent with existing literature.
 
 If `sequence_length=None`, it will load the full audio track, otherwise, the output will be automatically crop to `sequence_length`. If `hop_length` is set to be same as the one used in spectrogram extraction, the piano rolls returned by this dataset will be aligned with the spectrogram. 
 

@@ -39,7 +39,7 @@ TODA:
 
 class AMTDataset(Dataset):
     def __init__(self,
-                 use_cache=True,
+                 use_cache=False,
                  download=True,
                  preload=False,
                  sequence_length=None,
@@ -221,7 +221,7 @@ class MAPS(AMTDataset):
                  root='./',
                  groups='all',
                  data_type='MUS',
-                 overlap=True,
+                 overlap=False,
                  sampling_rate=None,
                  **kwargs):
         """
