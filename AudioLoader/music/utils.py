@@ -5,6 +5,7 @@ from tqdm import tqdm
 import hashlib
 from mido import Message, MidiFile, MidiTrack
 import csv
+import os
 
 def tsv2roll(tsv, audio_length, sample_rate, hop_size, max_midi, min_midi):
     """
