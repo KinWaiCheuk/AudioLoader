@@ -28,6 +28,7 @@ import math
 import json
 import mido
 import importlib
+from importlib import resources # need this one to prevent the error AttributeError: module 'importlib' has no attribute 'resources'
 
 """
 This file is based on https://github.com/jongwook/onsets-and-frames
@@ -335,7 +336,7 @@ class MAPS(AMTDataset):
              
         self.groups = groups if isinstance(groups, list) else self.available_groups(groups)
         
-        
+        print(f"========={self.download=}=========")
         if self.download:
             # Check if MAPS folder exists
             if not os.path.isdir(os.path.join(root, self.name_archive)):
@@ -481,6 +482,7 @@ class MAPS(AMTDataset):
             print(f"{group+'.zip'} exists" + " "*100)
             pass
         else:
+            print(f"{os.path.isfile(os.path.join(self.root, self.name_archive, group+'.zip'))=}")
             print(" "*shutil.get_terminal_size().columns, end='\r')
             print(f"{group+'.zip'} not found, proceeding to download")
             download_url(self.url_dict[group],
