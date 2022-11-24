@@ -15,7 +15,7 @@ AudioLoader is a PyTorch dataset based on [torchaudio](https://pytorch.org/audio
     1. [MusdbHQ](./AudioLoader/music/mss/mss_README.md#MusdbHQ)
     
 ## Example code
-A complete example code is available in this [repository](https://github.com/KinWaiCheuk/pytorch_template). The following pesudo code shows the general idea of how to apply AudioLoader into your existing code.
+A complete example code is available in this [repository](https://github.com/KinWaiCheuk/pytorch_template). The following pseudo  code shows the general idea of how to apply AudioLoader to your existing code.
 
 ```python
 from AudioLoader.speech import TIMIT
