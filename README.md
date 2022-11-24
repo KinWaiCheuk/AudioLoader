@@ -1,5 +1,5 @@
 # AudioLoader
-This will be a collection of PyTorch audio dataset loaders that are not available in the official PyTorch dataset and torchaudio dataset yet. I am building various one-click-ready audio datasets for my research, and I hope it will also benefit other people. 
+AudioLoader is a PyTorch dataset based on [torchaudio](https://pytorch.org/audio/stable/datasets.html). It contains a collection of datasets that are not available in [torchaudio](https://pytorch.org/audio/stable/datasets.html) yet.
 
 **Currently supported datasets:**
 1. [Speech](./AudioLoader/speech/speech_README.md#Speech)
@@ -13,6 +13,28 @@ This will be a collection of PyTorch audio dataset loaders that are not availabl
 1. [Music Source Separation (MSS)](./AudioLoader/music/mss/mss_README.md#Music-Source-Separation)
     1. [FastMUSDB](./AudioLoader/music/mss/mss_README.md#FastMUSDB)
     1. [MusdbHQ](./AudioLoader/music/mss/mss_README.md#MusdbHQ)
+    
+## Example code
+A complete example code is available in this [repository](https://github.com/KinWaiCheuk/pytorch_template). The following pesudo code shows the general idea of how to apply AudioLoader into your existing code.
+
+```python
+from AudioLoader.speech import TIMIT
+from torch.utils.data import DataLoader
+
+# AudioLoader helps you to set up supported datasets
+dataset = TIMIT('./YourFolder',
+                split='train',
+                groups='all',
+                download=True)
+train_loader = DataLoader(train_dataset,
+                          batch_size=4)
+
+# Pass the dataset to you 
+model = MyModel()
+trainer = pl.Trainer()
+trainer.fit(model, train_loader)
+
+```
 
 ## Installation
 `pip install git+https://github.com/KinWaiCheuk/AudioLoader.git`
