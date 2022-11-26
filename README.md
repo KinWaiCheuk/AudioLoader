@@ -26,7 +26,7 @@ dataset = TIMIT('./YourFolder',
                 split='train',
                 groups='all',
                 download=True)
-train_loader = DataLoader(train_dataset,
+train_loader = DataLoader(dataset,
                           batch_size=4)
 
 # Pass the dataset to you 
