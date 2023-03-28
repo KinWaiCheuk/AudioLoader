@@ -143,7 +143,7 @@ def caching_data(_walker, path, subset):
     
     # include silence
     if subset=='training':
-        slience_clips = [
+        silence_clips = [
             'dude_miaowing.wav',
             'white_noise.wav',
             'exercise_bike.wav',
@@ -151,14 +151,14 @@ def caching_data(_walker, path, subset):
             'pink_noise.wav'
         ]
     elif subset=='validation':
-        slience_clips = [
+        silence_clips = [
             'running_tap.wav'
         ]
     else:
-        slience_clips = []
+        silence_clips = []
         
         
-    for i in slience_clips: 
+    for i in silence_clips: 
         audio_samples, rate = torchaudio.load(os.path.join(path, '_background_noise_', i))
         for start in range(0,
                            audio_samples.shape[1] - SAMPLE_RATE,
