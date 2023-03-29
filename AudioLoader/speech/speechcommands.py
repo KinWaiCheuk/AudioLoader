@@ -190,8 +190,8 @@ class SPEECHCOMMANDS_12C(Dataset):
                  folder_in_archive: str,
                  download: bool,
                  subset: str,
-                 transform: Optional[Callable[[Tensor]]] = None,
-                 target_transform: Optional[Callable[[int, str, str, int]]] = None,
+                 transform: Optional[Callable[[Tensor], Any]] = None,
+                 target_transform: Optional[Callable[[int, str, str, int], Any]] = None,
                  ):
 
         assert subset is None or subset in ["training", "validation", "testing"], (
@@ -269,7 +269,7 @@ class SPEECHCOMMANDS_12C(Dataset):
             waveform = self.transform(waveform)
 
         if self.target_transform is not None:
-            label = self.target_transform(label)
+            label = self.target_transform(*label)
 
         return waveform, label
 
