@@ -1,23 +1,14 @@
 from torch.utils.data import Dataset
 import torchaudio
 from pathlib import Path
-from typing import Tuple, Union
+from typing import Tuple, Optional, Callable, Any
 from torch import Tensor
-import torch
 import os
-import time
 import tqdm
-import shutil
-import glob
-import multiprocessing as mp
-import warnings
-from distutils.dir_util import copy_tree
-from torchaudio.compliance import kaldi # for downsampling
 from torchaudio.datasets.utils import (
     download_url,
     extract_archive,
 )
-import hashlib
 import torch.nn.functional as F            
 
 #start for speechcommands 12 classes code
@@ -187,14 +178,20 @@ class SPEECHCOMMANDS_12C(Dataset):
             "validation_list.txt" and "testing_list.txt" are explained in the README of the dataset
             and in the introduction of Section 7 of the original paper and its reference 12. The
             original paper can be found `here <https://arxiv.org/pdf/1804.03209.pdf>`_. (Default: ``None``)
+        transform (callable, optional): A function/transform that takes in an a torch Tensor of audio and
+            returns a transformed version.
+        target_transform (callable, optional): A function/transform that takes in the target (sample_rate,
+            label, speaker_id, utterance_number) and transforms it
     """
 
     def __init__(self,
-                 root,
-                 url,
-                 folder_in_archive,
-                 download,
-                 subset,
+                 root: str,
+                 url: str,
+                 folder_in_archive: str,
+                 download: bool,
+                 subset: str,
+                 transform: Optional[Callable[[Tensor], Any]] = None,
+                 target_transform: Optional[Callable[[int, str, str, int], Any]] = None,
                  ):
 
         assert subset is None or subset in ["training", "validation", "testing"], (
@@ -253,20 +250,28 @@ class SPEECHCOMMANDS_12C(Dataset):
             walker = sorted(str(p) for p in Path(self._path).glob('*/*.wav'))
             self._walker = [w for w in walker if HASH_DIVIDER in w and EXCEPT_FOLDER not in w]
 
-    def __getitem__(self, n: int) -> Tuple[Tensor, int, str, str, int]:
+        self.transform = transform
+        self.target_transform = target_transform
+
+    def __getitem__(self, n: int) -> Tuple[Any, Any]:
         """Load the n-th sample from the dataset.
         Args:
             n (int): The index of the sample to be loaded
         Returns:
-            (Tensor, int, str, str, int):
-            ``(waveform, sample_rate, label, speaker_id, utterance_number)``
+            (Any, Any): (transformed) waveform and corresponding (transformed) label
         """
-        return self._data[n]
+        data = self._data[n]
 
+        waveform = data[0]
+        label = data[1:]
+
+        if self.transform is not None:
+            waveform = self.transform(waveform)
+
+        if self.target_transform is not None:
+            label = self.target_transform(*label)
+
+        return waveform, label
 
     def __len__(self) -> int:
         return len(self._data)       
-
-
-
-
