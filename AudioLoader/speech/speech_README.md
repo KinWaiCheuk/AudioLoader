@@ -102,5 +102,5 @@ This will download, unzip, and split the labels inside YourFolder. To download v
 
 `dataset[i]` returns a tuple containing:
 ```python
-(waveform, sample_rate, label, speaker_id, utterance_number)
+(waveform, (sample_rate, label, speaker_id, utterance_number))
 ```
