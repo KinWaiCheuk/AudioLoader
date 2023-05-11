@@ -1,8 +1,8 @@
 numpy==1.22.4
 tqdm==4.64.0
 joblib==1.1.0
-torch==1.11.0
-torchaudio==0.11.0
+torch
+torchaudio
 mido==1.2.10
 pydub==0.25.1
 musdb==0.4.0
