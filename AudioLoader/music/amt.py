@@ -334,7 +334,7 @@ class MAPS(AMTDataset):
         self.sampling_rate = sampling_rate
         self.dataset = 'MAPS'
              
-        self.groups = groups if isinstance(groups, list) else self.available_groups(groups)
+        self.groups = self.available_groups(groups) if isinstance(groups, str) else list(groups)
         
         print(f"========={self.download=}=========")
         if self.download:
