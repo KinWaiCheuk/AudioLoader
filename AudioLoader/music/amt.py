@@ -2,11 +2,8 @@ import os
 from pathlib import Path
 from glob import glob
 import shutil
-import sys
 import pickle
 import numpy as np
-import random
-from typing import Optional, Callable
 # import soundfile
 from tqdm import tqdm
 import multiprocessing
@@ -15,12 +12,21 @@ from .utils import tsv2roll, check_md5, files, process_midi, process_csv
 import torch
 from torch.utils.data import Dataset
 import warnings
-
 import torchaudio
-from torchaudio.datasets.utils import (
-    download_url,
-    extract_archive,
-)
+
+# the download utils were removed in torch==2.0
+__TORCH_GTE_2_0 = False
+split_version = torch.__version__.split(".")
+major_version = int(split_version[0])
+if major_version > 1:
+    __TORCH_GTE_2_0 = True
+    from torchaudio.datasets.utils import _extract_zip as extract_archive
+    from torch.hub import download_url_to_file as download_url
+else:
+    from torchaudio.datasets.utils import (
+        download_url,
+        extract_archive,
+    )
 
 from collections import OrderedDict
 import math
