@@ -153,7 +153,7 @@ class MultilingualLibriSpeech(Dataset):
                     print(f'{download_path+ext_archive} already exists, proceed to extraction...')
                 else:
                     print(f'downloading...')
-                    download_url(url, root, hash_value=checksum, hash_type='md5')
+                    download_url(url, root)
                     
             if decision.lower()=='yes':
                 print(f'extracting...')
