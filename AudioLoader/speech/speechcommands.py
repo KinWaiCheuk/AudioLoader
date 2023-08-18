@@ -5,6 +5,7 @@ from typing import Tuple, Optional, Callable, Any
 from torch import Tensor
 import os
 import tqdm
+import torch
 __TORCH_GTE_2_0 = False
 split_version = torch.__version__.split(".")
 major_version = int(split_version[0])
