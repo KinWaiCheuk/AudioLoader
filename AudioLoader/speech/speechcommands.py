@@ -116,7 +116,7 @@ def caching_data(_walker, path, subset):
         relpath = os.path.relpath(filepath, path)
         label, filename = os.path.split(relpath)
 
-        unmodified_label = label
+        original_label = label
 
         if label in UNKNOWN: # if the label is not one of the 10 commands, map them to unknown
             label = '_unknown_'
@@ -140,7 +140,7 @@ def caching_data(_walker, path, subset):
             pad_length = SAMPLE_RATE-audio_samples.shape[1]
             audio_samples = F.pad(audio_samples, (0,pad_length)) # pad the end of the audio until 1 second
             # (1, 16000)
-        cache.append((audio_samples, rate, name2idx[label], speaker_id, utterance_number, unmodified_label)) 
+        cache.append((audio_samples, rate, name2idx[label], speaker_id, utterance_number, original_label)) 
     
     # include silence
     if subset=='training':
@@ -164,7 +164,7 @@ def caching_data(_walker, path, subset):
                            audio_samples.shape[1] - SAMPLE_RATE,
                            SAMPLE_RATE//2):
             audio_segment = audio_samples[0, start:start + SAMPLE_RATE]
-            cache.append((audio_segment.unsqueeze(0), rate, name2idx['_silence_'], '00000000', -1, unmodified_label))        
+            cache.append((audio_segment.unsqueeze(0), rate, name2idx['_silence_'], '00000000', -1, original_label))        
         
     return cache
 
