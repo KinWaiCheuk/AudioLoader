@@ -115,9 +115,11 @@ def caching_data(_walker, path, subset):
     for filepath in tqdm.tqdm(_walker, desc=f'Loading {subset} set'):
         relpath = os.path.relpath(filepath, path)
         label, filename = os.path.split(relpath)
+
+        original_label = label
+
         if label in UNKNOWN: # if the label is not one of the 10 commands, map them to unknown
             label = '_unknown_'
-        
         
         speaker, _ = os.path.splitext(filename)
         speaker, _ = os.path.splitext(speaker)
@@ -138,8 +140,7 @@ def caching_data(_walker, path, subset):
             pad_length = SAMPLE_RATE-audio_samples.shape[1]
             audio_samples = F.pad(audio_samples, (0,pad_length)) # pad the end of the audio until 1 second
             # (1, 16000)
-        cache.append((audio_samples, rate, name2idx[label], speaker_id, utterance_number)) 
-    
+        cache.append((audio_samples, rate, name2idx[label], speaker_id, utterance_number, original_label)) 
     
     # include silence
     if subset=='training':
@@ -155,8 +156,7 @@ def caching_data(_walker, path, subset):
             'running_tap.wav'
         ]
     else:
-        silence_clips = []
-        
+        silence_clips = []    
         
     for i in silence_clips: 
         audio_samples, rate = torchaudio.load(os.path.join(path, '_background_noise_', i))
@@ -164,7 +164,7 @@ def caching_data(_walker, path, subset):
                            audio_samples.shape[1] - SAMPLE_RATE,
                            SAMPLE_RATE//2):
             audio_segment = audio_samples[0, start:start + SAMPLE_RATE]
-            cache.append((audio_segment.unsqueeze(0), rate, name2idx['_silence_'], '00000000', -1))        
+            cache.append((audio_segment.unsqueeze(0), rate, name2idx['_silence_'], '00000000', -1, '_silence_'))        
         
     return cache
 
@@ -190,7 +190,7 @@ class SPEECHCOMMANDS_12C(Dataset):
         transform (callable, optional): A function/transform that takes in an a torch Tensor of audio and
             returns a transformed version.
         target_transform (callable, optional): A function/transform that takes in the target (sample_rate,
-            label, speaker_id, utterance_number) and transforms it
+            label, speaker_id, utterance_number, original_label) and transforms it
     """
 
     def __init__(self,
@@ -200,7 +200,7 @@ class SPEECHCOMMANDS_12C(Dataset):
                  download: bool,
                  subset: str,
                  transform: Optional[Callable[[Tensor], Any]] = None,
-                 target_transform: Optional[Callable[[int, str, str, int], Any]] = None,
+                 target_transform: Optional[Callable[[int, str, str, int, str], Any]] = None,
                  ):
 
         assert subset is None or subset in ["training", "validation", "testing"], (
