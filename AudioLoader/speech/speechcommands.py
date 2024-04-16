@@ -5,10 +5,6 @@ from typing import Tuple, Optional, Callable, Any
 from torch import Tensor
 import os
 import tqdm
-from torchaudio.datasets.utils import (
-    download_url,
-    extract_archive,
-)
 import torch.nn.functional as F            
 
 #start for speechcommands 12 classes code
@@ -17,12 +13,6 @@ FOLDER_IN_ARCHIVE = "SpeechCommands"
 URL = "speech_commands_v0.02"
 HASH_DIVIDER = "_nohash_"
 EXCEPT_FOLDER = "_background_noise_"
-_CHECKSUMS = {
-    "https://storage.googleapis.com/download.tensorflow.org/data/speech_commands_v0.01.tar.gz":
-    "3cd23799cb2bbdec517f1cc028f8d43c",
-    "https://storage.googleapis.com/download.tensorflow.org/data/speech_commands_v0.02.tar.gz":
-    "6b74f3901214cb2c2934e98196829835",
-}
 
 UNKNOWN = [
  'backward',
@@ -106,9 +96,11 @@ def caching_data(_walker, path, subset):
     for filepath in tqdm.tqdm(_walker, desc=f'Loading {subset} set'):
         relpath = os.path.relpath(filepath, path)
         label, filename = os.path.split(relpath)
+
+        original_label = label
+
         if label in UNKNOWN: # if the label is not one of the 10 commands, map them to unknown
             label = '_unknown_'
-        
         
         speaker, _ = os.path.splitext(filename)
         speaker, _ = os.path.splitext(speaker)
@@ -129,12 +121,11 @@ def caching_data(_walker, path, subset):
             pad_length = SAMPLE_RATE-audio_samples.shape[1]
             audio_samples = F.pad(audio_samples, (0,pad_length)) # pad the end of the audio until 1 second
             # (1, 16000)
-        cache.append((audio_samples, rate, name2idx[label], speaker_id, utterance_number)) 
-    
+        cache.append((audio_samples, rate, name2idx[label], speaker_id, utterance_number, original_label)) 
     
     # include silence
     if subset=='training':
-        slience_clips = [
+        silence_clips = [
             'dude_miaowing.wav',
             'white_noise.wav',
             'exercise_bike.wav',
@@ -142,20 +133,19 @@ def caching_data(_walker, path, subset):
             'pink_noise.wav'
         ]
     elif subset=='validation':
-        slience_clips = [
+        silence_clips = [
             'running_tap.wav'
         ]
     else:
-        slience_clips = []
+        silence_clips = []    
         
-    import random
-    for i in slience_clips: 
+    for i in silence_clips: 
         audio_samples, rate = torchaudio.load(os.path.join(path, '_background_noise_', i))
         for start in range(0,
                            audio_samples.shape[1] - SAMPLE_RATE,
-                           SAMPLE_RATE//4):
+                           SAMPLE_RATE//2):
             audio_segment = audio_samples[0, start:start + SAMPLE_RATE]
-            cache.append((audio_segment.unsqueeze(0), rate, name2idx['_silence_'], '00000000', -1))        
+            cache.append((audio_segment.unsqueeze(0), rate, name2idx['_silence_'], '00000000', -1, '_silence_'))        
         
     return cache
 
@@ -181,7 +171,7 @@ class SPEECHCOMMANDS_12C(Dataset):
         transform (callable, optional): A function/transform that takes in an a torch Tensor of audio and
             returns a transformed version.
         target_transform (callable, optional): A function/transform that takes in the target (sample_rate,
-            label, speaker_id, utterance_number) and transforms it
+            label, speaker_id, utterance_number, original_label) and transforms it
     """
 
     def __init__(self,
@@ -190,8 +180,8 @@ class SPEECHCOMMANDS_12C(Dataset):
                  folder_in_archive: str,
                  download: bool,
                  subset: str,
-                 transform: Optional[Callable] = None,
-                 target_transform: Optional[Callable[[int, str, str, int]]] = None,
+                 transform: Optional[Callable[[Tensor], Any]] = None,
+                 target_transform: Optional[Callable[[int, str, str, int, str], Any]] = None,
                  ):
 
         assert subset is None or subset in ["training", "validation", "testing"], (
@@ -204,30 +194,17 @@ class SPEECHCOMMANDS_12C(Dataset):
             
         elif subset=='testing':
             url = "speech_commands_test_set_v0.02"
-        
-        base_url = "https://storage.googleapis.com/download.tensorflow.org/data/"
-        ext_archive = ".tar.gz"
-
-        url = os.path.join(base_url, url + ext_archive)
 
         # Get string representation of 'root' in case Path object is passed
         root = os.fspath(root)
 
-        basename = os.path.basename(url)
-        print(f"{basename=}")
-        archive = os.path.join(root, basename)
-
-        basename = basename.rsplit(".", 2)[0]
+        full_basename = os.path.basename(url)
+        basename = full_basename.rsplit(".", 2)[0]
         folder_in_archive = os.path.join(folder_in_archive, basename)
 
-        self._path = os.path.join(root, folder_in_archive)
+        self._path = os.path.join(root, folder_in_archive, full_basename)
 
-        if download:
-            if not os.path.isdir(self._path):
-                if not os.path.isfile(archive):
-                    checksum = _CHECKSUMS.get(url, None)
-                    download_url(url, root, hash_value=checksum, hash_type="md5")
-                extract_archive(archive, self._path)
+        torchaudio.datasets.SPEECHCOMMANDS(root, url, folder_in_archive, download, subset)
 
         if subset == "validation":
             self._walker = _load_list(self._path, "validation_list.txt")
@@ -269,7 +246,7 @@ class SPEECHCOMMANDS_12C(Dataset):
             waveform = self.transform(waveform)
 
         if self.target_transform is not None:
-            label = self.target_transform(label)
+            label = self.target_transform(*label)
 
         return waveform, label
 
