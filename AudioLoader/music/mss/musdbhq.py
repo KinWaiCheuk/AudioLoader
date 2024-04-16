@@ -21,10 +21,11 @@ from torch.utils.data import Dataset
 import torchaudio
 from torchaudio.compliance import kaldi # for downsampling
 import hashlib
-from torchaudio.datasets.utils import (
+from AudioLoader.utils import (
     download_url,
     extract_archive,
 )
+
 
 from collections import OrderedDict
 import math
@@ -57,6 +58,7 @@ class MusdbHQ:
             ext (str): extension for audio files (default is .wav).
         samplerate and channels are converted on the fly.
         """
+        
  
          # Getting audio path
         ext_archive = '.zip'

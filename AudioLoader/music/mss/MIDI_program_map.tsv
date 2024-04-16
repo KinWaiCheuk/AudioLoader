@@ -1,0 +1,129 @@
+0	Piano	Acoustic Grand Piano	Piano
+1	Piano	Bright Acoustic Piano	Piano
+2	Piano	Electric Grand Piano	Piano
+3	Piano	Honky-tonk Piano	Piano
+4	Piano	Electric Piano 1	Electric Piano
+5	Piano	Electric Piano 2	Electric Piano
+6	Piano	Harpsichord	Harpsichord
+7	Piano	Clavinet	Clavinet
+8	Chromatic Percussion	Celesta	Chromatic Percussion
+9	Chromatic Percussion	Glockenspiel	Chromatic Percussion
+10	Chromatic Percussion	Music box	Chromatic Percussion
+11	Chromatic Percussion	Vibraphone	Chromatic Percussion
+12	Chromatic Percussion	Marimba	Chromatic Percussion
+13	Chromatic Percussion	Xylophone	Chromatic Percussion
+14	Chromatic Percussion	Tubular Bells	Chromatic Percussion
+15	Chromatic Percussion	Dulcimer	Chromatic Percussion
+16	Organ	Drawbar Organ	Organ
+17	Organ	Percussive Organ	Organ
+18	Organ	Rock Organ	Organ
+19	Organ	Church Organ	Organ
+20	Organ	Reed Organ	Organ
+21	Organ	Accordion	Accordion
+22	Organ	Harmonica	Harmonica
+23	Organ	Tango Accordion	Accordion
+24	Guitar	Acoustic Guitar (nylon)	Acoustic Guitar
+25	Guitar	Acoustic Guitar (steel)	Acoustic Guitar
+26	Guitar	Electric Guitar (jazz)	Electric Guitar
+27	Guitar	Electric Guitar (clean)	Electric Guitar
+28	Guitar	Electric Guitar (muted)	Electric Guitar
+29	Guitar	Overdriven Guitar	Electric Guitar
+30	Guitar	Distortion Guitar	Electric Guitar
+31	Guitar	Guitar Harmonics	Electric Guitar
+32	Bass	Acoustic Bass	Bass
+33	Bass	Electric Bass (finger)	Bass
+34	Bass	Electric Bass (pick)	Bass
+35	Bass	Fretless Bass	Bass
+36	Bass	Slap Bass 1	Bass
+37	Bass	Slap Bass 2	Bass
+38	Bass	Synth Bass 1	Bass
+39	Bass	Synth Bass 2	Bass
+40	Strings	Violin	Violin
+41	Strings	Viola	Viola
+42	Strings	Cello	Cello
+43	Strings	Contrabass	Contrabass
+44	Strings	Tremolo Strings	Strings
+45	Strings	Pizzicato Strings	Strings
+46	Strings	Orchestral Harp	Harp
+47	Strings	Timpani	Timpani
+48	Ensemble	String Ensemble 1	Strings
+49	Ensemble	String Ensemble 2	Strings
+50	Ensemble	Synth Strings 1	Strings
+51	Ensemble	Synth Strings 2	Strings
+52	Ensemble	Choir Aahs	Voice
+53	Ensemble	Voice Oohs	Voice
+54	Ensemble	Synth Choir	Voice
+55	Ensemble	Orchestra Hit	Strings
+56	Brass	Trumpet	Trumpet
+57	Brass	Trombone	Trombone
+58	Brass	Tuba	Tuba
+59	Brass	Muted Trumpet	Trumpet
+60	Brass	French Horn	Horn
+61	Brass	Brass Section	Brass
+62	Brass	Synth Brass 1	Brass
+63	Brass	Synth Brass 2	Brass
+64	Reed	Soprano Sax	Saxophone
+65	Reed	Alto Sax	Saxophone
+66	Reed	Tenor Sax	Saxophone
+67	Reed	Baritone Sax	Saxophone
+68	Reed	Oboe	Oboe
+69	Reed	English Horn	Horn
+70	Reed	Bassoon	Bassoon
+71	Reed	Clarinet	Clarinet
+72	Pipe	Piccolo	Piccolo
+73	Pipe	Flute	Flute
+74	Pipe	Recorder	Recorder
+75	Pipe	Pan Flute	Pipe
+76	Pipe	Blown bottle	Pipe
+77	Pipe	Shakuhachi	Pipe
+78	Pipe	Whistle	Pipe
+79	Pipe	Ocarina	Pipe
+80	Synth Lead	Lead 1 (square)	Synth Lead
+81	Synth Lead	Lead 2 (sawtooth)	Synth Lead
+82	Synth Lead	Lead 3 (calliope)	Synth Lead
+83	Synth Lead	Lead 4 chiff	Synth Lead
+84	Synth Lead	Lead 5 (charang)	Synth Lead
+85	Synth Lead	Lead 6 (voice)	Synth Lead
+86	Synth Lead	Lead 7 (fifths)	Synth Lead
+87	Synth Lead	Lead 8 (bass + lead)	Synth Lead
+88	Synth Pad	Pad 1 (new age)	Synth Pad
+89	Synth Pad	Pad 2 (warm)	Synth Pad
+90	Synth Pad	Pad 3 (polysynth)	Synth Pad
+91	Synth Pad	Pad 4 (choir)	Synth Pad
+92	Synth Pad	Pad 5 (bowed)	Synth Pad
+93	Synth Pad	Pad 6 (metallic)	Synth Pad
+94	Synth Pad	Pad 7 (halo)	Synth Pad
+95	Synth Pad	Pad 8 (sweep)	Synth Pad
+96	Synth Effects	FX 1 (rain)	Synth Effects
+97	Synth Effects	FX 2 (soundtrack)	Synth Effects
+98	Synth Effects	FX 3 (crystal)	Synth Effects
+99	Synth Effects	FX 4 (atmosphere)	Synth Effects
+100	Synth Effects	FX 5 (brightness)	Synth Effects
+101	Synth Effects	FX 6 (goblins)	Synth Effects
+102	Synth Effects	FX 7 (echoes)	Synth Effects
+103	Synth Effects	FX 8 (sci-fi)	Synth Effects
+104	Ethnic	Sitar	Ethnic
+105	Ethnic	Banjo	Ethnic
+106	Ethnic	Shamisen	Ethnic
+107	Ethnic	Koto	Ethnic
+108	Ethnic	Kalimba	Ethnic
+109	Ethnic	Bagpipe	Ethnic
+110	Ethnic	Fiddle	Ethnic
+111	Ethnic	Shana	Ethnic
+112	Percussive	Tinkle Bell	Percussive
+113	Percussive	Agogo	Percussive
+114	Percussive	Steel Drums	Percussive
+115	Percussive	Woodblock	Percussive
+116	Percussive	Taiko Drum	Percussive
+117	Percussive	Melodic Tom	Percussive
+118	Percussive	Synth Drum	Percussive
+119	Percussive	Reverse Cymbal	Percussive
+120	Sound Effects	Guitar Fret Noise	Sound Effects
+121	Sound Effects	Breath Noise	Sound Effects
+122	Sound Effects	Seashore	Sound Effects
+123	Sound Effects	Bird Tweet	Sound Effects
+124	Sound Effects	Telephone Ring	Sound Effects
+125	Sound Effects	Helicopter	Sound Effects
+126	Sound Effects	Applause	Sound Effects
+127	Sound Effects	Gunshot	Sound Effects
+128	Drums	Drums	Drums

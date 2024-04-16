@@ -13,10 +13,18 @@ import multiprocessing as mp
 import warnings
 from distutils.dir_util import copy_tree
 from torchaudio.compliance import kaldi # for downsampling
-from torchaudio.datasets.utils import (
-    download_url,
-    extract_archive,
-)
+__TORCH_GTE_2_0 = False
+split_version = torch.__version__.split(".")
+major_version = int(split_version[0])
+if major_version > 1:
+    __TORCH_GTE_2_0 = True
+    from torchaudio.datasets.utils import _extract_zip as extract_archive
+    from torch.hub import download_url_to_file as download_url
+else:
+    from torchaudio.datasets.utils import (
+        download_url,
+        extract_archive,
+    )
 import hashlib
 import torch.nn.functional as F
 

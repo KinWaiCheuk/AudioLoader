@@ -17,10 +17,6 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 import torchaudio
 import hashlib
-from torchaudio.datasets.utils import (
-    download_url,
-    extract_archive,
-)
 
 from collections import OrderedDict
 import math
