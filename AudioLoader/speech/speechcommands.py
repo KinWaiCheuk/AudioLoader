@@ -5,19 +5,6 @@ from typing import Tuple, Optional, Callable, Any
 from torch import Tensor
 import os
 import tqdm
-import torch
-__TORCH_GTE_2_0 = False
-split_version = torch.__version__.split(".")
-major_version = int(split_version[0])
-if major_version > 1:
-    __TORCH_GTE_2_0 = True
-    from torchaudio.datasets.utils import _extract_zip as extract_archive
-    from torch.hub import download_url_to_file as download_url
-else:
-    from torchaudio.datasets.utils import (
-        download_url,
-        extract_archive,
-    )
 import torch.nn.functional as F            
 
 #start for speechcommands 12 classes code
@@ -26,12 +13,6 @@ FOLDER_IN_ARCHIVE = "SpeechCommands"
 URL = "speech_commands_v0.02"
 HASH_DIVIDER = "_nohash_"
 EXCEPT_FOLDER = "_background_noise_"
-_CHECKSUMS = {
-    "https://storage.googleapis.com/download.tensorflow.org/data/speech_commands_v0.01.tar.gz":
-    "3cd23799cb2bbdec517f1cc028f8d43c",
-    "https://storage.googleapis.com/download.tensorflow.org/data/speech_commands_v0.02.tar.gz":
-    "6b74f3901214cb2c2934e98196829835",
-}
 
 UNKNOWN = [
  'backward',
@@ -213,30 +194,17 @@ class SPEECHCOMMANDS_12C(Dataset):
             
         elif subset=='testing':
             url = "speech_commands_test_set_v0.02"
-        
-        base_url = "https://storage.googleapis.com/download.tensorflow.org/data/"
-        ext_archive = ".tar.gz"
-
-        url = os.path.join(base_url, url + ext_archive)
 
         # Get string representation of 'root' in case Path object is passed
         root = os.fspath(root)
 
-        basename = os.path.basename(url)
-        print(f"{basename=}")
-        archive = os.path.join(root, basename)
-
-        basename = basename.rsplit(".", 2)[0]
+        full_basename = os.path.basename(url)
+        basename = full_basename.rsplit(".", 2)[0]
         folder_in_archive = os.path.join(folder_in_archive, basename)
 
-        self._path = os.path.join(root, folder_in_archive)
+        self._path = os.path.join(root, folder_in_archive, full_basename)
 
-        if download:
-            if not os.path.isdir(self._path):
-                if not os.path.isfile(archive):
-                    checksum = _CHECKSUMS.get(url, None)
-                    download_url(url, root, hash_value=checksum, hash_type="md5")
-                extract_archive(archive, self._path)
+        torchaudio.datasets.SPEECHCOMMANDS(root, url, folder_in_archive, download, subset)
 
         if subset == "validation":
             self._walker = _load_list(self._path, "validation_list.txt")
