@@ -189,11 +189,7 @@ class SPEECHCOMMANDS_12C(Dataset):
             + "{'training', 'validation', 'testing'}."
         )
 
-        if subset in ["training", "validation"]:
-            url = "speech_commands_v0.02"
-            
-        elif subset=='testing':
-            url = "speech_commands_test_set_v0.02"
+        url = "speech_commands_v0.02"
 
         # Get string representation of 'root' in case Path object is passed
         root = os.fspath(root)
@@ -210,7 +206,7 @@ class SPEECHCOMMANDS_12C(Dataset):
             self._walker = _load_list(self._path, "validation_list.txt")
             self._data = caching_data(self._walker, self._path, subset)            
         elif subset == "testing":
-            self._walker = list(Path(self._path).glob('*/*.wav'))
+            self._walker = _load_list(self._path, "testing_list.txt")
             self._data = caching_data(self._walker, self._path, subset)
         elif subset == "training":
             excludes = set(_load_list(self._path, "validation_list.txt", "testing_list.txt"))
